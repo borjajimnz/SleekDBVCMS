@@ -1,0 +1,23 @@
+{
+  "name": "sleekdbvcms/sleekdbvcms",
+  "description": "SleekdbVCMS - The missing & simple SleekDB Content Management System",
+  "keywords": ["SleekDB CMS", "CMS"],
+  "type": "project",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Vorja",
+      "email": "vorjadev@gmail.com"
+    }
+  ],
+  "require": {
+    "php": ">=5.4",
+    "ext-json": "*",
+	"rakibtg/sleekdb": "1.5.*"
+  },
+  "autoload": {
+    "psr-4": {
+      "SleekDB\\": "src/"
+    }
+  }
+}
