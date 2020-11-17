@@ -1,29 +1,32 @@
 {
-  "name": "vorja/sleekdbvcms",
-  "description": "SleekdbVCMS - The missing & simple SleekDB CMS Content Management System",
-  "keywords": ["SleekDB CMS", "CMS"],
-  "type": "project",
-  "license": "MIT",
-  "authors": [
-        {
-              "name": "Vorja",
-              "email": "vorjadev@gmail.com"
-        }
-  ],
-  "require": {
-        "php": ">=5.4",
-        "ext-json": "*",
-    	"rakibtg/sleekdb": "1.5.*"
-  },
-  "autoload": {
-        "psr-4": {
-          "SleekDB\\": "src/"
-    }
-  },
-  "scripts": {
-        "post-install-cmd": [
-            "chmod -R 777 ./storage",
-            "chmod -R 777 ./public"
-        ]
-    },
+   "name":"vorja/sleekdbvcms",
+   "description":"SleekdbVCMS - The missing & simple SleekDB CMS Content Management System",
+   "keywords":[
+      "SleekDB CMS",
+      "CMS"
+   ],
+   "type":"project",
+   "license":"MIT",
+   "authors":[
+      {
+         "name":"Vorja",
+         "email":"vorjadev@gmail.com"
+      }
+   ],
+   "require":{
+      "php":">=5.4",
+      "ext-json":"*",
+      "rakibtg/sleekdb":"1.5.*"
+   },
+   "autoload":{
+      "psr-4":{
+         "SleekDB\\":"src/"
+      }
+   },
+   "scripts":{
+      "post-install-cmd":[
+         "chmod -R 777 ./storage",
+         "chmod -R 777 ./public"
+      ]
+   }
 }
