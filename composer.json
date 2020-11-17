@@ -1,6 +1,6 @@
 {
   "name": "vorja/sleekdbvcms",
-  "description": "SleekdbVCMS - The missing & simple SleekDB Content Management System",
+  "description": "SleekdbVCMS - The missing & simple SleekDB CMS Content Management System",
   "keywords": ["SleekDB CMS", "CMS"],
   "type": "project",
   "license": "MIT",
