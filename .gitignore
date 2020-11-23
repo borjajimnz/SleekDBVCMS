@@ -1,6 +1,5 @@
 /vendor/
 /storage/public
-/storage/stores/posts
-/storage/stores/projects
+/storage/stores
 composer.lock
 
