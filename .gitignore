@@ -1,5 +1,4 @@
 /vendor/
 /storage/public
-/storage/stores
 composer.lock
 
