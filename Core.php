@@ -97,6 +97,11 @@ class CMS {
 		$this->language();
 	}
 
+	//  Get language
+	function getLanguage(){
+		return $_SESSION['language'];
+	}	
+
 	// Initcialize the Database Playground
 	function database(){
 		$database = array();
@@ -356,21 +361,22 @@ class CMS {
 
 	// Prints the translation BOX to translate strings.
 	function translationBox(){
+		if(!$this->isLogged()) return false;
 		if(!isset($this->config['languages'])) $this->config['languages'][0] = $this->language;
-		$text = '<h3 class="mt-3">'.$this->__('Translations Box').'</h3>';
-		$text .= '<form method="post"><table class="table">';
+		$text = '<h3 class="text-2xl mt-3">'.$this->__('Translations Box').'</h3>';
+		$text .= '<form method="post"><table class="table w-full">';
 		$this->pendingLanguage = array_unique($this->pendingLanguage);
 		foreach($this->pendingLanguage as $key){
 
 			foreach($this->config['languages'] as $language){
 
 			$text .= '<tr>';
-			$text .= '<td width="30%"><b>('.$language.') '.$key.'</b></td><td>'.$this->editable('insert_row',['name'=>'insert_lang['.$language.']['.$key.']','class'=>'btn-secondary','type'=>'text','any'=>'placeholder="Translate this text"']).'</td>';
+			$text .= '<td width="30%" class="p-2"><b>('.$language.') '.$key.'</b></td><td>'.$this->editable('insert_row',['name'=>'insert_lang['.$language.']['.$key.']','class'=>'btn-secondary','type'=>'text','any'=>'placeholder="Translate this text"']).'</td>';
 			$text .= '</tr>';
 
 			}
 		}
-		$text .= '</table><button name="add_translation" class="mr-2 btn btn-primary">Add translations</button></form>';
+		$text .= '</table><button name="add_translation" class="mr-2 btn btn-primary bg-gray-200 rounded p-2 hover:bg-gray-300 mt-2">Add translations</button></form>';
 		print $text;
 	}
 
