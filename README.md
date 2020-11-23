@@ -4,6 +4,10 @@
 # Install
 composer create-project vorja/sleekdbvcms
 
+# Configuration
+
+Open the Config.php to configure and fits your needs.
+
 # Instructions
 Go to public/admin.php
 
