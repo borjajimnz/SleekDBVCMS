@@ -342,6 +342,7 @@ class CMS {
 
 	// Return the translated string given if exists.
 	function __($key){
+		if(!$this->database->translation) return $key;
 		$data = $this->row($this->database->translation->where('key','=',$key)->where('language','=',$this->language)->limit(1)->fetch());	
 		if($data) return $data['value'];
 		array_push($this->pendingLanguage,$key);
