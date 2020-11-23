@@ -8,6 +8,7 @@ composer create-project vorja/sleekdbvcms
 Go to public/admin.php
 
 **Username:** admin
+
 **Password:** password
 
 Enjoy!
