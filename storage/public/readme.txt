@@ -1,0 +1,1 @@
+System will place here uploaded files and link them to the public/folder.
