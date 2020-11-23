@@ -1,4 +1,4 @@
-/vendor/
-/storage/public
+/vendor
+/storage
 composer.lock
 
