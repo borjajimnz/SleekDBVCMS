@@ -1,5 +1,5 @@
-# SleekDBVCSM
- SleekDBVCSM - The missing & simple CMS for SleekDB
+# SleekDBVCMS
+ SleekDBVCMS - The missing & simple CMS for SleekDB
  
 # Install
 composer create-project vorja/sleekdbvcms
