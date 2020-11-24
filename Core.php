@@ -99,7 +99,7 @@ class CMS {
 
 	//  Get language
 	function getLanguage(){
-		return $_SESSION['language'];
+		return $this->language;
 	}	
 
 	// Initcialize the Database Playground
