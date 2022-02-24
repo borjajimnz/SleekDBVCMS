@@ -1,8 +1,12 @@
 # SleekDBVCMS
- SleekDBVCMS - The missing & simple CMS for SleekDB
+ SleekDBVCMS - The missing & simple CMS for [SleekDB](https://link-url-here.org) Created by [Timu57](https://github.com/Timu57) with the great support of (Rakibtg)[https://github.com/rakibtg]
+
+ SleekDB is a flat NO-SQL database implemented in PHP without any third-party dependencies. The files are stored in folders as JSON.
  
-# Install
-composer create-project vorja/sleekdbvcms
+# Installation
+
+Download the ZIP and upload anywhere you want, then type:
+`composer install`
 
 # Configuration
 
@@ -12,7 +16,7 @@ Open the Config.php to configure and fits your needs.
 
 Go to public/admin.php
 
-By default it will create a users store, and a row with the following data:
+By default it will create a users store(table), and a record with the following data:
 
 **Username:** admin
 
