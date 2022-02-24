@@ -31,8 +31,7 @@
             <li class="inline-block py-2 mr-4 hover:underline"><a href="index.php">Welcome</a></li>
           </ul>
           <ul>
-            <li class="inline-block py-2 mr-2 hover:underline"><a href="admin.php">Login</a></li>
-            <li class="inline-block py-2 px-2 mr-2 bg-white rounded text-gray-800 hover:bg-gray-200"><a href="admin.php"><?php $cms->_('Register') ?></a></li>
+            <li class="inline-block py-2 px-2 mr-2 bg-white rounded text-gray-800 hover:bg-gray-200"><a href="admin.php"><?php $cms->_('Login') ?></a></li>
           </ul>
         </div>
       </div>
