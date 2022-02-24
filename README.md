@@ -1,5 +1,5 @@
-# SleekDBVCMS
- SleekDBVCMS - The missing & simple CMS for [SleekDB](https://link-url-here.org) Created by [Timu57](https://github.com/Timu57) with the great support of [rakibtg](https://github.com/rakibtg)
+# SleekDBVCMS - CRUD & CMS NO-SQL SYSTEM
+ SleekDBVCMS - The missing & simple CMS for [SleekDB](https://link-url-here.org) Created by [Timu57](https://github.com/Timu57) with the great support of [rakibtg](https://github.com/rakibtg).
 
  SleekDB is a flat NO-SQL database implemented in PHP without any third-party dependencies. The files are stored in folders as JSON.
  
