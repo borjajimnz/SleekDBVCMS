@@ -16,3 +16,15 @@ Go to public/admin.php
 **Password:** password
 
 Enjoy!
+
+# Demo
+
+## Dashboard
+
+![Dashboard](https://raw.githubusercontent.com/vorja/SleekDBVCMS/main/demo/dashboard.PNG)
+
+![CRUD Table](https://raw.githubusercontent.com/vorja/SleekDBVCMS/main/demo/table.PNG)
+
+![CRUD Form](https://raw.githubusercontent.com/vorja/SleekDBVCMS/main/demo/edit.PNG)
+
+![Frontend](https://raw.githubusercontent.com/vorja/SleekDBVCMS/main/demo/frontend.PNG)
