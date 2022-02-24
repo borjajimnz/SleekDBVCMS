@@ -19,6 +19,7 @@ Go to public/admin.php
 By default it will create a users store(table), and a record with the following data:
 
 **Username:** admin
+
 **Password:** password
 
 Enjoy!
