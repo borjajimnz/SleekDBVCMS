@@ -9,7 +9,10 @@ composer create-project vorja/sleekdbvcms
 Open the Config.php to configure and fits your needs.
 
 # Instructions
+
 Go to public/admin.php
+
+By default it will create a users store, and a row with the following data:
 
 **Username:** admin
 
