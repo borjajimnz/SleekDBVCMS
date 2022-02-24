@@ -124,16 +124,13 @@ class CMS {
 
 		// If no stores, exit.
 		if(!isset($this->config['stores']) || empty($this->config['stores'])) return false;
-		foreach($this->config['stores'] as $store_key=>$store_columns){
-			//$database[$store_key] = SleekDB::Store($store_key, $this->store_path, $this->options);
-		}
 
 		$this->database = (object) $database; 
 		$users = SleekDB::Store('users', $this->store_path, $this->options);
 
 		// If we have users table, create a default user.
 		if(isset($users) && empty($users->fetch())){
-			$this->database->users->insert([
+			$users->insert([
 				'username' => 'admin',
 				'email' => 'admin@admin.com',
 				'password' => md5('password'),
