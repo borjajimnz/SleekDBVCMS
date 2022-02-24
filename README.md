@@ -22,13 +22,18 @@ Enjoy!
 
 # Demo
 
+## The Frontend (Build using TailwindCSS)
 ![Frontend](https://raw.githubusercontent.com/vorja/SleekDBVCMS/main/demo/frontend.PNG)
 
+## Login Screen
 ![Demo](https://raw.githubusercontent.com/vorja/SleekDBVCMS/main/demo/login.PNG)
 
+## Backend (Dashboard)
 ![Dashboard](https://raw.githubusercontent.com/vorja/SleekDBVCMS/main/demo/dashboard.PNG)
 
+## Backend CRUD Table
 ![CRUD Table](https://raw.githubusercontent.com/vorja/SleekDBVCMS/main/demo/table.PNG)
 
+## Backend CRUD Form
 ![CRUD Form](https://raw.githubusercontent.com/vorja/SleekDBVCMS/main/demo/edit.PNG)
 
