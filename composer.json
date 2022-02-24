@@ -14,9 +14,9 @@
       }
    ],
    "require":{
-      "php":">=5.4",
+      "php":">=7.0",
       "ext-json":"*",
-      "rakibtg/sleekdb":"1.5.*"
+      "rakibtg/sleekdb":"2.13.*"
    },
    "autoload":{
       "psr-4":{

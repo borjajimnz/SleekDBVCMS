@@ -2,6 +2,14 @@
 
 namespace Core;
 
+
+use \SleekDB\SleekDB;
+use \SleekDB\Store;
+use \SleekDB\Query;
+use \ZipArchive;
+use \RecursiveIteratorIterator;
+use \RecursiveDirectoryIterator;
+
 $curDir = dirname(__FILE__);
 
 // Prevent to forge Config
@@ -25,6 +33,11 @@ if(!is_dir($curDir.'/storage')){
 	if(!is_dir($curDir.'/storage/public')) mkdir($curDir.'/storage/public',0777);
 }
 
+// Create storage path for data backups.
+if(!is_dir($curDir.'/backups')){
+	mkdir($curDir.'/backups',0777);
+}
+
 // Create data path for database storage.
 if(!is_dir($curDir.'/storage/stores')) mkdir($curDir.'/storage/stores',0777);
 
@@ -35,34 +48,32 @@ if(!is_dir($config['public_path'].'/storage')){
 	}
 }
 
-
-/*
-	DEFAULT STORES TO MAKE THE CMS WORK PROPERLY
-*/
-
-
+error_reporting(E_ERROR | E_WARNING | E_PARSE | E_NOTICE);
 /*
 	MAIN CMS CLASS
 */
 
 class CMS {
 	var $database;
-	var $options;
+	var $options = [];
 	var $language;
 	var $pendingLanguage = [];
 	var $setup = false;
 	var $allowed_extensions = array('image/jpeg' => 'jpg');
+	var $store_path;
+	var $storage_path;
+	var $root_path;
+
+	/*
+		DEFAULT STORES TO MAKE THE CMS WORK PROPERLY
+	*/
+
 	var $default_stores = [
 		'users' => [
 			'username' => 'text',
 			'password' => 'password',
 			'email' => 'email',
 			'created'=> 'datetime',
-		],
-		'translation' => [
-			'key' => 'text',
-			'value' => 'text',
-			'language' => 'text',
 		]
 	];
 
@@ -72,6 +83,11 @@ class CMS {
 
 		// Initializating the language
 		$this->language();
+
+		// Set the store path
+		$this->root_path =  __DIR__;
+		$this->storage_path =  __DIR__.'/storage';
+		$this->store_path =  dirname(__FILE__).'/storage/stores';
 		
 		// Setting up allowed extensions to upload files.
 		$this->allowed_extensions = $config['upload_files_extensions_allowed'];
@@ -108,11 +124,15 @@ class CMS {
 
 		// If no stores, exit.
 		if(!isset($this->config['stores']) || empty($this->config['stores'])) return false;
-		foreach($this->config['stores'] as $store_key=>$store_columns) $database[$store_key] = \SleekDB\SleekDB::store($store_key, dirname(__FILE__).'/storage/stores', $this->options);
+		foreach($this->config['stores'] as $store_key=>$store_columns){
+			//$database[$store_key] = SleekDB::Store($store_key, $this->store_path, $this->options);
+		}
+
 		$this->database = (object) $database; 
+		$users = SleekDB::Store('users', $this->store_path, $this->options);
 
 		// If we have users table, create a default user.
-		if(isset($this->database->users) && empty($this->database->users->fetch())){
+		if(isset($users) && empty($users->fetch())){
 			$this->database->users->insert([
 				'username' => 'admin',
 				'email' => 'admin@admin.com',
@@ -128,10 +148,11 @@ class CMS {
 
 	// Login
 	function login($username,$password){
-		$user = $this->row($this->database->users
+
+		$user = SleekDB::Store('users', $this->store_path, $this->options)
 		->where( 'username', '=', $username)
 		->where( 'password', '=', md5($password))
-		->fetch());
+		->fetch();
 
 		// If the user exists, redirect to admin.php
 		if($user){
@@ -155,26 +176,96 @@ class CMS {
 	function table2table($table){
 		$text = '<form method="post" class="text-right"><button name="insert" class="btn btn-primary">'.$this->__('New').'</button></form><table class="table">';
 		$text .= '<tr><td>#</td>';
+
+		$relations = [];
+
+		$searchable = [];
+
 		foreach($this->config['stores'][$table] as $name=>$value){
-			if(is_array($value)) continue;
-			$text .= '<td><b>'.$name.'</b><br><small><i class="text-dark">'.$value.'</i></small></td>';
+			if(is_array($value)){
+				if(isset($value['join'])){
+					array_push($relations,$value['join']);
+					$text .= '<td><b>'.$name.'</b><br><small><i class="text-dark"><b>join</b> '.$value['join']['foreing_table'].'</i></small></td>'; 
+				} else {
+				}
+			} else {
+				$searchable[$name] = $value;
+				$text .= '<td><b>'.$name.'</b><br><small><i class="text-dark">'.$value.'</i></small></td>';
+			}
 		}
+
 		$text .= '<td></td></tr>';
-		
-		$data = $this->database->$table->orderBy( 'desc', '_id' )->fetch();
+
 
  
 
-		foreach($data as $datak=>$datav){
+		$storeQuery =  new Store($table, $this->store_path, $this->options);
+
+
+		if(isset($relations)){
+			$storeQuery = $this->join($storeQuery,$relations);
+			if(isset($_POST['search'])){
+				$storeQuery = $storeQuery->search($searchable, $_POST['search']);
+			}
+			$storeQuery = $storeQuery->getQuery()->fetch();
+		} else {
+			$storeQuery = $storeQuery->orderBy( 'desc', '_id' )->fetch();
+		}
+
+		foreach($storeQuery as $datak=>$datav){
 			$text .= '<tr><td>'.$datav['_id'].'</td>';
 			foreach($this->config['stores'][$table] as $name=>$value){
-				if(is_array($value)) continue;
-				$text .= '<td>'.(isset($datav[$name]) ? $datav[$name] : '').'</td>';
+
+				// If is an array data
+				if(is_array($value)){
+			
+					if(isset($value['join'])){
+
+						$text .= "<td>";
+
+						foreach($value['join']['foreing_display'] as $displayv){
+
+							if(isset($datav['joined.'.$name])){
+								$total_size = count($datav['joined.'.$name]);
+								$i = 0;
+								foreach($datav['joined.'.$name] as $last_row){
+									$i++;
+									$text .= $last_row[$displayv] ?? $displayv;
+									$text .= ' ';
+								}
+							}
+	
+						}
+						$text .= "</td>";
+
+					}
+				} else {
+					$text .= '<td>'.(isset($datav[$name]) ? $datav[$name] : '').'</td>';
+				}	
+
 			}
-			$text .= '<td class="text-right"><form method="post"><input type="hidden" name="id" value="'.$datav['_id'].'"><button name="delete" class="btn btn-danger btn-sm">'.$this->__('Delete').'</button> <button name="update" class="btn btn-success btn-sm">'.$this->__('Edit').'</button> <button name="view" class="btn btn-primary btn-sm">'.$this->__('View').'</button></form></td></tr>';
+			$text .= '<td class="text-right"><form method="post"><input type="hidden" name="id" value="'.$datav['_id'].'"><button name="delete" class="btn btn-danger btn-sm" onclick="return confirm(\'Are you sure?\');">'.$this->__('Delete').'</button> <button name="update" class="btn btn-success btn-sm">'.$this->__('Edit').'</button> <button name="view" class="btn btn-primary btn-sm">'.$this->__('View').'</button></form></td></tr>';
 		}
 		$text .= '</table>';
 		return $text;
+	}
+
+	function store($table){
+		return (new Store($table, $this->store_path, $this->options));
+	}
+
+	function join($data,$relations){
+			// Create query builder
+			$data = $data->createQueryBuilder();
+			foreach($relations as $relation){
+			
+				$relatedStore = new Store($relation['foreing_table'], $this->store_path, $this->options);
+				$data = $data->join(function($data) use ($relatedStore, $relation) {
+				    return $relatedStore->findBy([$relation['foreing_key'], "=", $data[$relation['key']]]);
+				  }, 'joined.'.$relation['key']);
+
+			}	
+ 			return $data;
 	}
 
 	function row($arr){
@@ -196,31 +287,34 @@ class CMS {
 		if($id != null){ 
 			$text .= '<input type="hidden" name="id" value="'.$id.'">';
 			$text .= '<input type="hidden" name="update" value="1">';
-			$data = $this->row($this->database->$table->where('_id','=',$id)->limit(1)->fetch());
+	
+			$data = SleekDB::Store($table, $this->store_path, $this->options)->findOneBy(['_id','=', (int) $id]);
 		}
 
-		$translatable = $this->tableOptions('translatable',$this->config['stores'][$table]);
-
-
 		foreach($this->config['stores'][$table] as $name=>$value){
-			if(is_array($value)) continue;
+			if(is_array($value)){
+				$text .= '<div class="mt-2"><b>'.$name.'</b>';
 
-			// If is translatable
-			$translatable_label = null;
-			if(isset($translatable) && in_array($name, $translatable)){
-				$translatable_label = '/ translatable';
-				$data[$name] = $this->__translate($value);
-				$text .= '<input type="hidden" name="translatable['.$name.']">';
+				$options = SleekDB::Store($value['join']['foreing_table'], $this->store_path, $this->options)->fetch();
+
+				// Si se puede hacer JOIN
+				if(isset($value['join'])){
+					$text .= '<br><small><i class="text-dark"><b>join</b> '.$value['join']['foreing_table'].'</i></small>';
+					$text .= $this->editable($action,['name'=>$name,'type'=>'select','options' => $options],(isset($data[$name]) ? $data[$name] : null));
+				}
+
+				$text .= '</div>';	
+			} else {
+				$text .= '<div class="mt-2"><b>'.$name.'</b><br><small><i class="text-dark">'.$value.'</i></small>';
+				$text .= $this->editable($action,['name'=>$name,'type'=>$value],(isset($data[$name]) ? $data[$name] : null));
+				$text .= '</div>';				
 			}
 
-			$text .= '<div class="mt-2"><b>'.$name.'</b><br><small><i class="text-dark">'.$value.' '.$translatable_label.'</i></small>';
-			$text .= $this->editable($action,['name'=>$name,'type'=>$value],(isset($data[$name]) ? $data[$name] : null));
-			$text .= '</div>';
 		}
 
 		// IF action is not view_row
 		if($action != 'view_row') $text .= '<button name="'.$action.'" class="mt-3 mr-2 btn btn-primary">'.$this->__($action).'</button>';
-		$text .= '<a href="admin.php?p='.$_GET['p'].'" class="mt-3 btn btn-danger">'.$this->__('Cancel').'</a>';
+		$text .= '<a href="admin.php?p='.$_GET['p'].'" class="mt-3 btn btn-danger">'.$this->__('cancel').'</a>';
 
 		$text .= '</form>';
 		return $text;
@@ -261,20 +355,19 @@ class CMS {
 		}
 	}
 
+	function delete($table,$id){
+	 	$delete = (new Store($table, $this->store_path, $this->options))->deleteById($id);
+	 	return false;
+	}
+
 	// Update or Insert data
 	function updateInsert($table,$data,$files){
+		$store = (new Store($table, $this->store_path, $this->options));
 
 		foreach($this->config['stores'][$table] as $name=>$value){
 			// Data
-			$translatable = null;
-			if(array_key_exists($name,$data)){
-				// Translatables
-				if(is_array($data['translatable']) && array_key_exists($name, $data['translatable'])){
-					$translatable[$name] = $data[$name];
-				}
-				
+			if(array_key_exists($name,$data)){			
 				$update[$name] = $data[$name];
-							
 			}
 
 			// Files
@@ -284,23 +377,10 @@ class CMS {
 		}
 
 		if(isset($data['id']) && !empty($data['id'])){
-			$this->database->$table->where('_id','=',$data['id'])->update($update);	
+		 	$update['_id'] = $data['id'];
+			$store->update($update);	
 		} else {
-			$this->database->$table->insert($update);	
-		}
-
-		// translatables
-		if(is_array($translatable)){
-			foreach($translatable as $key=>$value){
-				if(!$this->database->$table->where('key','=',$key)->update(['value'=>$value,'language'=>$this->language])){
-					$this->database->$table->insert([
-						'value' => $value,
-						'language' => $language,
-						'key' => $key,
-					]);
-				}
-			}
-			
+			$store->insert($update);	
 		}
 		
 	}
@@ -322,14 +402,29 @@ class CMS {
 
 		if($action == 'update_row' || $action == 'insert_row'){
 			switch ($options['type']) {
+				case 'select':
+
+					$input = '<select name="'.$options['name'].'" class="form-control '.(isset($options['class']) ?? $options['class']).'" '.(isset($options['any']) ?? $options['any']).' />';
+
+					foreach($options['options'] as $option){
+							$input .= '<option value="'.$option['_id'].'" '. (($value == $option['_id']) ? 'selected' : '') .'>'.$option['name'].'</option>';				
+					}
+
+					$input .= '</select>';
+					return $input;
 				case 'image':
-					return '<input type="file" name="'.$options['name'].'" class="form-control '.(isset($options['class']) ?? $options['class']).'" '.(isset($options['any']) ?? $options['any']).' /><br><b>'.$this->__('allowed_extensions').'</b>: '.implode(', ',$this->allowed_extensions);
-			    	case 'textarea':
-			        	return '<textarea name="'.$options['name'].'" class="form-control '.(isset($options['class']) ?? $options['class']).'" '.(isset($options['any']) ?? $options['any']).'>'.$value.'</textarea>';
-			    	case 'datetime':
-			      		return '<input type="date"  name="'.$options['name'].'" value="'.$value.'" class="form-control '.(isset($options['class']) ?? $options['class']).'" '.(isset($options['any']) ?? $options['any']).'>';
-			    	default:
-			      		return '<input name="'.$options['name'].'" value="'.$value.'" class="form-control '.(isset($options['class']) ?? $options['class']).'" '.(isset($options['any']) ?? $options['any']).'>';
+					$img = '<input type="hidden" name="'.$options['name'].'" value="'.$value.'">';
+					if(!empty($value)){
+						$img .= '<br><img src="public'.$value.'" loading="lazy" class="m-2">';
+					}
+					$img .= '<input type="file" name="'.$options['name'].'" class="form-control '.(isset($options['class']) ?? $options['class']).'" '.(isset($options['any']) ?? $options['any']).' /><br><b>'.$this->__('allowed_extensions').'</b>: '.implode(', ',$this->allowed_extensions);
+					return $img;
+			   	case 'textarea':
+			       	return '<textarea name="'.$options['name'].'" class="form-control '.(isset($options['class']) ?? $options['class']).'" '.(isset($ptions['any']) ?? $options['any']).'>'.$value.'</textarea>';
+			   	case 'datetime':
+			     	return '<input type="date"  name="'.$options['name'].'" value="'.$value.'" class="form-control '.(isset($options['class']) ?? $ptions['class']).'" '.(isset($options['any']) ?? $options['any']).'>';
+			   	default:
+			     	return '<input name="'.$options['name'].'" value="'.$value.'" class="form-control '.(isset($options['class']) ?? $options['class']).'" '.(isset($options['any']) ?? $options['any']).'>';
 			}
 		}
 
@@ -347,10 +442,6 @@ class CMS {
 
 	// Return the translated string given if exists.
 	function __($key){
-		if(!$this->database->translation) return $key;
-		$data = $this->row($this->database->translation->where('key','=',$key)->where('language','=',$this->language)->limit(1)->fetch());	
-		if($data) return $data['value'];
-		array_push($this->pendingLanguage,$key);
 		return $key;
 	}
 
@@ -359,42 +450,7 @@ class CMS {
 		print $this->__($key);
 	}
 
-	// Prints the translation BOX to translate strings.
-	function translationBox(){
-		if(!$this->isLogged()) return false;
-		if(!isset($this->config['languages'])) $this->config['languages'][0] = $this->language;
-		$text = '<h3 class="text-2xl mt-3">'.$this->__('Translations Box').'</h3>';
-		$text .= '<form method="post"><table class="table w-full">';
-		$this->pendingLanguage = array_unique($this->pendingLanguage);
-		foreach($this->pendingLanguage as $key){
-
-			foreach($this->config['languages'] as $language){
-
-			$text .= '<tr>';
-			$text .= '<td width="30%" class="p-2"><b>('.$language.') '.$key.'</b></td><td>'.$this->editable('insert_row',['name'=>'insert_lang['.$language.']['.$key.']','class'=>'btn-secondary','type'=>'text','any'=>'placeholder="Translate this text"']).'</td>';
-			$text .= '</tr>';
-
-			}
-		}
-		$text .= '</table><button name="add_translation" class="mr-2 btn btn-primary bg-gray-200 rounded p-2 hover:bg-gray-300 mt-2">Add translations</button></form>';
-		print $text;
-	}
-
-	// Add translations to the DATABASE
-	function translationBoxAdd($insert_lang){
-	     foreach($_POST['insert_lang'] as $language=>$data){
-	        foreach($data as $key=>$value){
-	        	if(empty($value)) continue;
-	            $this->database->translation->insert([
-	                'key' => $key,
-	                'value' => $value,
-	                'language' => $language,
-	            ]);
-	        }
-	        
-	     }
-	}
-
+ 
 	/*
 		HELPERS
 	*/
@@ -408,6 +464,75 @@ class CMS {
 	function redirect($url,$alert=null){
 		header('Location: '.$url);
 		$_SESSION['notifications'] = $alert;
+	}
+
+	//update config
+	function updateConfig($data){
+		file_put_contents(__DIR__.'/.default_stores',$data);
+	}
+
+	//backup
+	function backup()
+	{
+		$destination = __DIR__.'/backups/'.time().'.zip';
+		$source = $this->storage_path;
+	    if (!extension_loaded('zip') || !file_exists($source)) {
+	        return false;
+	    }
+
+	    $zip = new ZipArchive();
+	    if (!$zip->open($destination, ZIPARCHIVE::CREATE)) {
+	        return false;
+	    }
+
+	    $source = str_replace('\\', '/', realpath($source));
+
+	    if (is_dir($source) === true) {
+
+	        $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($source), RecursiveIteratorIterator::SELF_FIRST);
+
+	        foreach ($files as $file) {
+	            $file = str_replace('\\', '/', $file);
+
+	            // Ignore "." and ".." folders
+	            if (in_array(substr($file, strrpos($file, '/')+1), array('.', '..'))) {
+	                continue;
+	            }          
+
+	            $file = realpath($file);
+
+	            if (is_dir($file) === true) {
+	                $zip->addEmptyDir(str_replace($source . '/', '', $file . '/'));
+	            } elseif (is_file($file) === true) {
+	                $zip->addFromString(str_replace($source . '/', '', $file), file_get_contents($file));
+	            }
+	        }
+	    } elseif (is_file($source) === true) {
+	        $zip->addFromString(basename($source), file_get_contents($source));
+	    }
+
+	    return $zip->close();
+	}
+
+	// read file
+	function readFile($path){
+		$myfile = fopen($this->root_path.$path, "r") or die("Unable to open config file!");
+		$file = fread($myfile,filesize($this->root_path.$path));
+		fclose($myfile);
+		return $file;
+	}
+
+	// is valid json
+	function isValidJson($string) {
+	   json_decode($string);
+	   return json_last_error() === JSON_ERROR_NONE;
+	}
+
+	// flatten
+	function flatten(array $array) {
+	    $return = array();
+	    array_walk_recursive($array, function($a) use (&$return) { $return[] = $a; });
+	    return $return;
 	}
 
 }

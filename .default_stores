@@ -1,0 +1,21 @@
+{
+   "posts":{
+      "category":{
+         "join":{
+            "key":"category",
+            "foreing_table":"categories",
+            "foreing_key":"_id",
+            "foreing_display":[
+               "name"
+            ]
+         }
+      },
+      "title":"text",
+      "body":"textarea",
+      "image":"image",
+      "created":"datetime"
+   },
+   "categories":{
+      "name":"text"
+	}
+ }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            

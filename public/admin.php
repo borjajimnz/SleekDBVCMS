@@ -61,7 +61,9 @@ if(!$cms->isLogged()){
         <div class="clearfix">
             <label class="float-left form-check-label"><input type="checkbox"> <?php $cms->_('Remember me')?></label>
             <a href="#" class="float-right"></a>
-        </div>        
+        </div>  
+        <br>
+        <a href="index.php">Go to Frontend</a>      
     </form>
 </div>
 </body>
@@ -93,13 +95,29 @@ if(isset($_POST['insert_row'])){
 
 if(isset($_POST['delete'])){
     $table = $_GET['p'];
-   $database->$table->where( '_id', '=', $_POST['id'])->delete();
-   $cms->redirect('admin.php?p='.$_GET['p'],['success'=>'Updated']);
+   $cms->delete($table,$_POST['id']);
+   //$cms->redirect('admin.php?p='.$_GET['p'],['success'=>'Updated']);
 }
 
 if(isset($_POST['add_translation'])){
     $cms->translationBoxAdd($_POST['insert_lang']);
 }
+
+if(isset($_GET['backup'])){
+    $backup_msg = "<span class=\"text-success\">BACKUP saved ".date('Y-m-d H:i:s').".</span><br>";
+    $cms->backup();
+}
+
+if(isset($_POST['update_config'])){
+    if($cms->isValidJson($_POST['config_file'])){
+        $cms->updateConfig($_POST['config_file']);
+        $msg = "<span class=\"text-success\">JSON saved.</span><br>";
+    } else {
+       $msg = "<span class=\"text-danger\">Invalid JSON, no possible to save this file.</span><br>";
+    }
+    
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -149,6 +167,9 @@ if(isset($_POST['add_translation'])){
             color: #0d6efd;
         }
     </style>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsoneditor/9.7.2/jsoneditor.min.js" integrity="sha512-9T9AIzkTI9pg694MCTReaZ0vOimxuTKXA15Gin+AZ4eycmg85iEXGX811BAjyY+NOcDCdlA9k2u9SqVAyNqFkQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jsoneditor/9.7.2/jsoneditor.min.css" integrity="sha512-LDaPaKECzpambd6J0xPGx2s/z8EA1rAm3JzmoMgKO0VTRbXHTeE54oDLRw26eFiyBZ3Cf888tBEHzeUTYA3ddw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 </head>
 <body>
     <nav class="navbar navbar-light bg-light p-3">
@@ -161,33 +182,16 @@ if(isset($_POST['add_translation'])){
             </button>
         </div>
         <div class="col-12 col-md-4 col-lg-2">
-            <?php if(isset($_GET['p'])){?> <input class="form-control form-control-dark" type="text" placeholder="<?php $cms->_('search')?> <?php $cms->_($_GET['p'])?>" aria-label="<?php $cms->_('search in')?> <?php $cms->_($_GET['p'])?>"><?php } ?>
+            <?php if(isset($_GET['p'])){?><form method="post"> <input name="search" class="form-control form-control-dark" type="text" placeholder="<?php $cms->_('search')?> <?php $cms->_($_GET['p'])?>" value="<?php print $_POST['search'] ?? null; ?>" aria-label="<?php $cms->_('search in')?> <?php $cms->_($_GET['p'])?>"> </form><?php } ?>
         </div>
         <div class="col-12 col-md-5 col-lg-8 d-flex align-items-center justify-content-md-end mt-3 mt-md-0">
             
-            <div class="dropdown mr-2">
-                <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton2" data-toggle="dropdown" aria-expanded="false">
-                  <?php $cms->_('language')?> <?php print $cms->language; ?>
-                </button>
-                <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton2">
-                    <?php 
-                        if($cms->config['translations']){
-                            foreach($cms->config['translations'] as $lang){
-                                print '<li><a class="dropdown-item" href="admin.php?lang='.$lang.'">'.$cms->__($lang).' </a></li>';
-                            }                        
-                        }
-                    ?>
-                </ul>
-              </div>
-
-
-
             <div class="dropdown">
                 <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-expanded="false">
-                  <?php $cms->_('About my account')?>
+                  <?php $cms->_('My Account')?>
                 </button>
                 <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                  <li><a class="dropdown-item" href="#">Settings</a></li>
+                  <li><a class="dropdown-item" href="index.php">Frontend</a></li>
                   <li><a class="dropdown-item" href="?logout">Sign out</a></li>
                 </ul>
               </div>
@@ -218,45 +222,49 @@ if(isset($_POST['add_translation'])){
             </nav>
             <?php if(!isset($_GET['p'])){ ?>
 
+
+    <?php
+$myfile = fopen($cms->root_path.'/.default_stores', "r") or die("Unable to open config file!");
+$json = fread($myfile,filesize($cms->root_path.'/.default_stores'));
+fclose($myfile);
+?>
+
                 <main class="col-md-9 ml-sm-auto col-lg-10 px-md-4 py-4">
-                    <div class="row my-4">
-                        <div class="col-12 col-md-6 col-lg-3 mb-4 mb-lg-0">
+                    <div class="row">
+                        <div class="col-sm-6">
                             <div class="card">
-                                <h5 class="card-header">CPU</h5>
+                                <h5 class="card-header">Dashboard</h5>
                                 <div class="card-body">
-                                    <strong>Uptime:</strong><br>
-                                    <?php system("uptime"); ?>
-                                    <br /><br />
-                                    <strong>System Information:</strong><br>
-                                    <?php system("uname -a"); ?>
-                                </div>
-                              </div>
-                        </div>
-                        <div class="col-12 col-md-6 col-lg-3 mb-4 mb-lg-0">
-                            <div class="card">
-                                <h5 class="card-header">Database</h5>
-                                <div class="card-body">
-                                    <span><?php $cms->_('tables')?>:</span>
-                                    <ul>
-                                    <?php foreach($cms->config['stores'] as $table=>$columns){?>
-                                        <li><?php print$table?></li>
-                                    <?php } ?>
-                                  </ul>
-                                  <a href=""><?php $cms->_('create_backup')?></a> / <a href=""><?php $cms->_('restore_backup')?></a>
+
                                 </div>
 
                             </div>
                         </div>
-                        <div class="col-12 col-md-6 col-lg-3 mb-4 mb-lg-0">
+                        <div class="col-sm-6">
+                            <form method="post">
                             <div class="card">
-                                <h5 class="card-header">Storage</h5>
+                                <h5 class="card-header">Configuration</h5>
                                 <div class="card-body">
-                                    
+                                  <textarea id="editor" class="form-control" style="min-height: 600px;" name="config_file">
+<?php print $_POST['config_file'] ?? $json ?>
+                                  </textarea>
+
+                                  <div class="row p-2">
+                                    <div class="col-sm-6">
+                                        <?php print $msg ?? null?>
+                                        <button class="btn btn-primary" name="update_config"><?php $cms->_('Update') ?></button>
+                                    </div>
+                                    <div class="col-sm-6 text-right">
+                                        <?php print $backup_msg ?? null?>
+                                        <a href="?backup"><?php $cms->_('create_backup')?></a>
+                                    </div>
+                                  </div>
                                 </div>
 
                             </div>
+                   
+                            </form>
                         </div>
-                        <?php if($cms->pendingLanguage){ $cms->translationBox(); } ?>
                     </div>
                 </main>
 
@@ -269,8 +277,7 @@ if(isset($_POST['add_translation'])){
                             <li class="breadcrumb-item active" aria-current="page"><?php $cms->_($_GET['p'])?></li>
                         </ol>
                     </nav>
-                    <h1 class="h2"><?php $cms->_($_GET['p'])?></h1>
-                    <p><?php $cms->_($_GET['p'].'.desc')?></p>
+                    <h1 class="h2 pb-2"><?php $cms->_($_GET['p'])?></h1>
                     <div class="row">
                         <?php if(isset($_POST['insert']) || isset($_POST['update']) || isset($_POST['view'])){ ?>
                         <div class="col-12 col-xl-6">
@@ -296,7 +303,6 @@ if(isset($_POST['add_translation'])){
                             </div>
                         </div>
                         <?php } ?>
-                        <?php if($cms->pendingLanguage){ $cms->translationBox(); } ?>
                     </div>
                 </main>
             <?php } ?>
@@ -305,7 +311,25 @@ if(isset($_POST['add_translation'])){
         </div>
 
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+
+        <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/5.0.0-alpha1/js/bootstrap.min.js" integrity="sha384-oesi62hOLfzrys4LxRF63OJCXdXDipiYWBnvTl9Y9/TRlw5xlKIEHpNyvvDShgf/" crossorigin="anonymous"></script>
+<script>
+    document.getElementById('editor').addEventListener('keydown', function(e) {
+  if (e.key == 'Tab') {
+    e.preventDefault();
+    var start = this.selectionStart;
+    var end = this.selectionEnd;
+
+    // set textarea value to: text before caret + tab + text after caret
+    this.value = this.value.substring(0, start) +
+      "\t" + this.value.substring(end);
+
+    // put caret at right position again
+    this.selectionStart =
+      this.selectionEnd = start + 1;
+  }
+});
+</script>
 </body>
 </html>
