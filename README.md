@@ -22,7 +22,9 @@ Enjoy!
 
 # Demo
 
-## Dashboard
+![Frontend](https://raw.githubusercontent.com/vorja/SleekDBVCMS/main/demo/frontend.PNG)
+
+![Demo](https://raw.githubusercontent.com/vorja/SleekDBVCMS/main/demo/login.PNG)
 
 ![Dashboard](https://raw.githubusercontent.com/vorja/SleekDBVCMS/main/demo/dashboard.PNG)
 
@@ -30,4 +32,3 @@ Enjoy!
 
 ![CRUD Form](https://raw.githubusercontent.com/vorja/SleekDBVCMS/main/demo/edit.PNG)
 
-![Frontend](https://raw.githubusercontent.com/vorja/SleekDBVCMS/main/demo/frontend.PNG)
