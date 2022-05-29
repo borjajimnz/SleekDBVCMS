@@ -3,7 +3,7 @@ require '../Core.php';
 
 if(!$cms->isLogged()){
     if(isset($_POST['login'])){
-        $cms->login($_POST['username'],$_POST['password']);
+        $msg = $cms->login($_POST['username'],$_POST['password']);
     }
 ?>
 
@@ -12,7 +12,7 @@ if(!$cms->isLogged()){
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>Bootstrap Simple Login Form</title>
+<title><?php print $cms->config['app_name']?></title>
 <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css">
 <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
 <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
@@ -55,6 +55,11 @@ if(!$cms->isLogged()){
         <div class="form-group">
             <input type="password" name="password" class="form-control" placeholder="Password" required="required">
         </div>
+        <?php 
+            if(isset($msg)){
+                echo '<div class="alert alert-danger">'.$msg.'</div>';
+            }
+        ?>
         <div class="form-group">
             <button type="submit" name="login" class="btn btn-primary btn-block"><?php $cms->_('Log in')?></button>
         </div>
@@ -128,6 +133,8 @@ if(isset($_POST['update_config'])){
     <title>Admin Panel</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/5.0.0-alpha1/css/bootstrap.min.css" integrity="sha384-r4NyP46KrjDleawBgD5tp8Y7UzmLA05oM1iAEQ17CSuDqnUK2+k9luXQOfXJCJ4I" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/chartist.js/latest/chartist.min.css">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.3.1/css/all.css" integrity="sha384-mzrmE5qonljUremFsqc01SB46JvROS7bZs3IO2EmfFsd15uHvIt+Y8vEf7N7fWAU" crossorigin="anonymous">
+
     <style>
         .sidebar {
             position: fixed;
@@ -169,7 +176,8 @@ if(isset($_POST['update_config'])){
     </style>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jsoneditor/9.7.2/jsoneditor.min.js" integrity="sha512-9T9AIzkTI9pg694MCTReaZ0vOimxuTKXA15Gin+AZ4eycmg85iEXGX811BAjyY+NOcDCdlA9k2u9SqVAyNqFkQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jsoneditor/9.7.2/jsoneditor.min.css" integrity="sha512-LDaPaKECzpambd6J0xPGx2s/z8EA1rAm3JzmoMgKO0VTRbXHTeE54oDLRw26eFiyBZ3Cf888tBEHzeUTYA3ddw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link href="https://cdn.jsdelivr.net/npm/suneditor@latest/dist/css/suneditor.min.css" rel="stylesheet">
+
 </head>
 <body>
     <nav class="navbar navbar-light bg-light p-3">
@@ -233,17 +241,57 @@ fclose($myfile);
                     <div class="row">
                         <div class="col-sm-6">
                             <div class="card">
-                                <h5 class="card-header">Dashboard</h5>
+                                <h5 class="card-header">Welcome to your new *basic* web app</h5>
                                 <div class="card-body">
+                                    <p class="mb-2">
+                                        <h5>Assignable types of inputs for the store configuration</h5>
+                                        select, text, image, password, color, url, number, email, decimal, textarea, rich_textarea, date, datetime
+                                    </p>
+                                    <hr/>
+                                    <p class="mb-2">
+                                    <h5>Demostration of last registered users</h5>
+                                    <?php 
+                                        $users = $cms->store('users')->findAll(['_id'=>'desc']);
 
+                                        foreach($users as $user){
+                                            echo '<div class="p-2">#'.$user['_id'].' - '.$user['username'].'</div>';
+                                        }
+                                    ?>
+                                    </p>
+
+                                    <hr/>
+
+                                    <p class="mb-2">
+
+                                        <div>Go to "index.php" and edit the router.</div>
+
+                                        <div class="mt-2 mb-2">
+                                            <code class="inline-block">
+                                                $router->add('/users',function() use ($cms) {<br>
+                                                <div class="ml-4">print $cms->toJson($cms->store('users')->findAll());</div>
+                                                });
+                                            </code>
+
+                                        </div>
+
+                                        <hr/>
+
+                                        <p class="mt-2">If you access to: <a href="/users">/users</a> you will see this results:</p>
+
+                                        <code>[{"username":"admin","password":"$2y$10$DEIuc8wjZ12Y\/iMXclAPPO2NWwnvN4xlgk5f5EjYTy\/UuyGEDHbUy","email":"admin@admin.com","created":"","_id":1}]</code>
+
+                                    </p>
                                 </div>
+
+                               
+
 
                             </div>
                         </div>
                         <div class="col-sm-6">
                             <form method="post">
                             <div class="card">
-                                <h5 class="card-header">Configuration</h5>
+                                <h5 class="card-header">Stores Configuration</h5>
                                 <div class="card-body">
                                   <textarea id="editor" class="form-control" style="min-height: 600px;" name="config_file">
 <?php print $_POST['config_file'] ?? $json ?>
@@ -279,15 +327,15 @@ fclose($myfile);
                     </nav>
                     <h1 class="h2 pb-2"><?php $cms->_($_GET['p'])?></h1>
                     <div class="row">
-                        <?php if(isset($_POST['insert']) || isset($_POST['update']) || isset($_POST['view'])){ ?>
+                        <?php if(isset($_GET['insert']) || isset($_GET['update']) || isset($_GET['view'])){ ?>
                         <div class="col-12 col-xl-6">
                             
                             <div class="card mb-3">
                                 <h5 class="card-header"><?php $cms->_('Create')?> <?php $cms->_($_GET['p'])?></h5>
                                 <div class="card-body">
-                                    <?php if(isset($_POST['insert'])) print $cms->form($_GET['p'],'insert_row'); ?>
-                                    <?php if(isset($_POST['update'])) print $cms->form($_GET['p'],'update_row',$_POST['id']); ?>
-                                    <?php if(isset($_POST['view'])) print $cms->form($_GET['p'],'view_row',$_POST['id']); ?>
+                                    <?php if(isset($_GET['insert'])) print $cms->form($_GET['p'],'insert_row'); ?>
+                                    <?php if(isset($_GET['update'])) print $cms->form($_GET['p'],'update_row',$_GET['id']); ?>
+                                    <?php if(isset($_GET['view'])) print $cms->form($_GET['p'],'view_row',$_GET['id']); ?>
                                 </div>
                             </div>
                         </div>
@@ -331,5 +379,14 @@ fclose($myfile);
   }
 });
 </script>
+<script src="https://cdn.jsdelivr.net/npm/suneditor@latest/dist/suneditor.min.js"></script>
+<script>
+    const editor = SUNEDITOR.create((document.getElementById('html_editor') || 'html_editor'),{
+        // All of the plugins are loaded in the "window.SUNEDITOR" object in dist/suneditor.min.js file
+        // Insert options
+        // Language global object (default: en)
+    });
+</script>
+
 </body>
 </html>

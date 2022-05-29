@@ -9,6 +9,7 @@ use \SleekDB\Query;
 use \ZipArchive;
 use \RecursiveIteratorIterator;
 use \RecursiveDirectoryIterator;
+use \App\Router;
 
 $curDir = dirname(__FILE__);
 
@@ -19,6 +20,7 @@ if(!file_exists($curDir.'/Config.php')) die('Error - Place "Config.php" in the s
 if(!file_exists($curDir.'/vendor/autoload.php')) die('Error - Did you /composer install? <br> We cant\'t find "autoload.php" file inside "vendor" directory');
 
 require $curDir.'/Config.php';
+require $curDir.'/Router.php';
 require $curDir.'/vendor/autoload.php';
 
 // If public path is not defined or not exists, error
@@ -133,7 +135,7 @@ class CMS {
 			$users->insert([
 				'username' => 'admin',
 				'email' => 'admin@admin.com',
-				'password' => md5('password'),
+				'password' => password_hash('password', PASSWORD_DEFAULT),
 			]);
 		}
 	}
@@ -147,14 +149,20 @@ class CMS {
 	function login($username,$password){
 
 		$user = SleekDB::Store('users', $this->store_path, $this->options)
-		->where( 'username', '=', $username)
-		->where( 'password', '=', md5($password))
-		->fetch();
+		->findOneBy( ['username', '=', $username]);
+
+		if(!$user){
+			return 'Invalid user/password';
+		}
+
+		$passwordChecked = password_verify($password, $user['password']);
 
 		// If the user exists, redirect to admin.php
-		if($user){
+		if($passwordChecked){
 			$_SESSION['logged'] = $user;
 			$this->redirect("admin.php");
+		} else {
+			return 'Invalid user/password';
 		}
 		
 	}
@@ -171,40 +179,42 @@ class CMS {
 
 	// Data TABLE to HTML TABLE
 	function table2table($table){
-		$text = '<form method="post" class="text-right"><button name="insert" class="btn btn-primary">'.$this->__('New').'</button></form><table class="table">';
+		$text = '<form method="get" class="text-right">
+		<input type="hidden" name="p" value="'.$table.'">
+		<button name="insert" class="btn btn-primary">'.$this->__('New').'</button>
+		</form><table class="table">';
 		$text .= '<tr><td>#</td>';
 
 		$relations = [];
-
 		$searchable = [];
 
 		foreach($this->config['stores'][$table] as $name=>$value){
 			if(is_array($value)){
 				if(isset($value['join'])){
+					$searchable[] = '_'.$value['join']['key'];
 					array_push($relations,$value['join']);
 					$text .= '<td><b>'.$name.'</b><br><small><i class="text-dark"><b>join</b> '.$value['join']['foreing_table'].'</i></small></td>'; 
-				} else {
 				}
 			} else {
-				$searchable[$name] = $value;
+
+				$searchable[] = $name;
 				$text .= '<td><b>'.$name.'</b><br><small><i class="text-dark">'.$value.'</i></small></td>';
 			}
 		}
 
 		$text .= '<td></td></tr>';
 
-
- 
-
-		$storeQuery =  new Store($table, $this->store_path, $this->options);
-
+		$storeQuery = $this->store($table);
 
 		if(isset($relations)){
 			$storeQuery = $this->join($storeQuery,$relations);
+			
 			if(isset($_POST['search'])){
 				$storeQuery = $storeQuery->search($searchable, $_POST['search']);
 			}
-			$storeQuery = $storeQuery->getQuery()->fetch();
+
+			$storeQuery = $storeQuery->disableCache()->getQuery()->fetch();
+
 		} else {
 			$storeQuery = $storeQuery->orderBy( 'desc', '_id' )->fetch();
 		}
@@ -222,16 +232,10 @@ class CMS {
 
 						foreach($value['join']['foreing_display'] as $displayv){
 
-							if(isset($datav['joined.'.$name])){
-								$total_size = count($datav['joined.'.$name]);
-								$i = 0;
-								foreach($datav['joined.'.$name] as $last_row){
-									$i++;
-									$text .= $last_row[$displayv] ?? $displayv;
-									$text .= ' ';
-								}
+							if(isset($datav['_'.$name][$displayv])){
+								$text .= $datav['_'.$name][$displayv];	
 							}
-	
+						 
 						}
 						$text .= "</td>";
 
@@ -241,7 +245,21 @@ class CMS {
 				}	
 
 			}
-			$text .= '<td class="text-right"><form method="post"><input type="hidden" name="id" value="'.$datav['_id'].'"><button name="delete" class="btn btn-danger btn-sm" onclick="return confirm(\'Are you sure?\');">'.$this->__('Delete').'</button> <button name="update" class="btn btn-success btn-sm">'.$this->__('Edit').'</button> <button name="view" class="btn btn-primary btn-sm">'.$this->__('View').'</button></form></td></tr>';
+
+			$text .= '<td class="text-right">
+
+			<form method="post">
+			<input type="hidden" name="p" value="'.$table.'"><input type="hidden" name="id" value="'.$datav['_id'].'">
+			<button name="delete" class="btn btn-danger btn-sm mb-1" onclick="return confirm(\'Are you sure?\');">'.$this->__('Delete').'</button>
+			</form>
+
+			<form method="get">
+			<input type="hidden" name="p" value="'.$table.'"><input type="hidden" name="id" value="'.$datav['_id'].'">
+			<button name="update" class="btn btn-success btn-sm">'.$this->__('Edit').'</button>
+	
+			</form>
+
+			</td></tr>';
 		}
 		$text .= '</table>';
 		return $text;
@@ -251,18 +269,26 @@ class CMS {
 		return (new Store($table, $this->store_path, $this->options));
 	}
 
-	function join($data,$relations){
+	function join($parentStore,$relations){
 			// Create query builder
-			$data = $data->createQueryBuilder();
+			$parentStore = $parentStore->createQueryBuilder();
 			foreach($relations as $relation){
-			
-				$relatedStore = new Store($relation['foreing_table'], $this->store_path, $this->options);
-				$data = $data->join(function($data) use ($relatedStore, $relation) {
-				    return $relatedStore->findBy([$relation['foreing_key'], "=", $data[$relation['key']]]);
-				  }, 'joined.'.$relation['key']);
 
-			}	
- 			return $data;
+				$relatedStore = $this->store($relation['foreing_table']);				
+				$parentStore = $parentStore->join(function($row) use ($relatedStore, $relation) {
+
+					if(isset($row[$relation['key']]) && !empty($row[$relation['key']])){
+  						return $relatedStore->findOneBy([ $relation['foreing_key'], '=', (int) $row[$relation['key']] ]);
+
+					} else {
+						// Si no existe la relacion, hacemos algo a parte... para que no derror.
+						return  $relatedStore->createQueryBuilder()->where(['_id','=',0]);
+					}
+				    
+				}, '_'.$relation['key']);
+
+			}
+ 			return $parentStore;
 	}
 
 	function row($arr){
@@ -297,13 +323,13 @@ class CMS {
 				// Si se puede hacer JOIN
 				if(isset($value['join'])){
 					$text .= '<br><small><i class="text-dark"><b>join</b> '.$value['join']['foreing_table'].'</i></small>';
-					$text .= $this->editable($action,['name'=>$name,'type'=>'select','options' => $options],(isset($data[$name]) ? $data[$name] : null));
+					$text .= $this->editable($action,['table'=>$table,'name'=>$name,'type'=>'select','options' => $options],(isset($data[$name]) ? $data[$name] : null));
 				}
 
 				$text .= '</div>';	
 			} else {
 				$text .= '<div class="mt-2"><b>'.$name.'</b><br><small><i class="text-dark">'.$value.'</i></small>';
-				$text .= $this->editable($action,['name'=>$name,'type'=>$value],(isset($data[$name]) ? $data[$name] : null));
+				$text .= $this->editable($action,['table'=>$table,'name'=>$name,'type'=>$value],(isset($data[$name]) ? $data[$name] : null));
 				$text .= '</div>';				
 			}
 
@@ -367,10 +393,17 @@ class CMS {
 				$update[$name] = $data[$name];
 			}
 
+			// If we found (password input) and is not EMPTY.
+			if($name === 'password' && !empty($data[$name])){
+				$update[$name] = password_hash($data[$name], PASSWORD_DEFAULT);
+			}
+
+ 
 			// Files
 			if(array_key_exists($name,$files)){
 				if($value == 'image') $update[$name] = $this->moveUploadedFile($files,$name);
 			}
+
 		}
 
 		if(isset($data['id']) && !empty($data['id'])){
@@ -389,8 +422,13 @@ class CMS {
 		if($action == 'view_row'){
 			switch ($options['type']) {
 				case 'image':
-					$image = '<span class="form-control">'.$value.'</span>';
-					$image .= '<img class="img-fluid" src=".'.$value.'">';
+					if(file_exists($value)){
+						$image = '<span class="form-control">'.$value.'</span>';
+						$image .= '<img class="img-fluid" src=".'.$value.'">';
+					} else {
+						$image = '<p>Image not found</p>';
+					}
+
 					return $image;
 				default:
 			      	return '<span class="form-control">'.$value.'</span>';
@@ -401,14 +439,42 @@ class CMS {
 			switch ($options['type']) {
 				case 'select':
 
-					$input = '<select name="'.$options['name'].'" class="form-control '.(isset($options['class']) ?? $options['class']).'" '.(isset($options['any']) ?? $options['any']).' />';
+					$foreing_display = null;
+					if($this->config['stores'][$options['table']][$options['name']]['join']['foreing_display']){
+						$foreing_display = $this->config['stores'][$options['table']][$options['name']]['join']['foreing_display'];				
+					}
 
+					$text_display = null;
+					if($foreing_display){
+						foreach($foreing_display as $displayv){
+
+							$text_display .= $options['options'][0][$displayv].' ';	
+						}						
+					}
+
+
+					$input = '<select name="'.$options['name'].'" class="form-control '.(isset($options['class']) ?? $options['class']).'" '.(isset($options['any']) ?? $options['any']).' />';
+						$input .= '<option selected></option>';
 					foreach($options['options'] as $option){
-							$input .= '<option value="'.$option['_id'].'" '. (($value == $option['_id']) ? 'selected' : '') .'>'.$option['name'].'</option>';				
+							$input .= '<option value="'.$option['_id'].'" '. (($value == $option['_id']) ? 'selected' : '') .'>'.$text_display.'</option>';				
 					}
 
 					$input .= '</select>';
 					return $input;
+				case 'password':
+					return '<input name="'.$options['name'].'" class="form-control" type="text" value="" placeholder="'.$value.'"><small>Leave blank if you don\'t want to change the password.</small>';
+				case 'color':
+					return '<input name="'.$options['name'].'" class="form-control" type="color" value="'.$value.'">';
+				case 'url':
+					return '<input name="'.$options['name'].'" class="form-control" type="url" placeholder="https://" value="'.$value.'">';
+				case 'number':
+					return '<input name="'.$options['name'].'" class="form-control" type="number" value="'.$value.'">';
+				case 'email':
+					return '<input name="'.$options['name'].'" class="form-control" type="email" value="'.$value.'">';
+				case 'decimal':
+					return ' <input  name="'.$options['name'].'" class="form-control" type="number" placeholder="0.00" required min="0" value="'.$value.'" step="0.01" title="Currency" pattern="^\d+(?:\.\d{1,2})?$" onblur="this.parentNode.parentNode.style.backgroundColor=/^\d+(?:\.\d{1,2})?$/.test(this.value)?\'inherit\':\'red\'">';
+
+
 				case 'image':
 					$img = '<input type="hidden" name="'.$options['name'].'" value="'.$value.'">';
 					if(!empty($value)){
@@ -418,8 +484,12 @@ class CMS {
 					return $img;
 			   	case 'textarea':
 			       	return '<textarea name="'.$options['name'].'" class="form-control '.(isset($options['class']) ?? $options['class']).'" '.(isset($ptions['any']) ?? $options['any']).'>'.$value.'</textarea>';
-			   	case 'datetime':
+			    case 'rich_textarea':
+			    	return '<textarea name="'.$options['name'].'" class="form-control" id="html_editor" style="min-height:400px"></textarea>';
+			   	case 'date':
 			     	return '<input type="date"  name="'.$options['name'].'" value="'.$value.'" class="form-control '.(isset($options['class']) ?? $ptions['class']).'" '.(isset($options['any']) ?? $options['any']).'>';
+			   	case 'datetime':
+			     	return '<input type="datetime-local"  name="'.$options['name'].'" value="'.$value.'" class="form-control '.(isset($options['class']) ?? $ptions['class']).'" '.(isset($options['any']) ?? $options['any']).'>';
 			   	default:
 			     	return '<input name="'.$options['name'].'" value="'.$value.'" class="form-control '.(isset($options['class']) ?? $options['class']).'" '.(isset($options['any']) ?? $options['any']).'>';
 			}
@@ -530,6 +600,10 @@ class CMS {
 	    $return = array();
 	    array_walk_recursive($array, function($a) use (&$return) { $return[] = $a; });
 	    return $return;
+	}
+
+	function toJson($array){
+		return json_encode($array);
 	}
 
 }

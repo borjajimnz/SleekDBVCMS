@@ -10,12 +10,31 @@
             ]
          }
       },
+	"subcategory":{
+         "join":{
+            "key":"subcategory",
+            "foreing_table":"subcategories",
+            "foreing_key":"_id",
+            "foreing_display":[
+               "name"
+            ]
+         }
+      },
       "title":"text",
-      "body":"textarea",
+      "resume":"textarea",
+      "body":"rich_textarea",
       "image":"image",
+      "color":"color",
+      "url":"url",
+      "number":"number",
+      "decimal":"decimal",
+      "email":"email",
       "created":"datetime"
    },
    "categories":{
       "name":"text"
-	}
- }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+    },
+   "subcategories":{
+      "name":"text"
+    }
+}                                                                                                                                                                                                                                                                                                                                                    
