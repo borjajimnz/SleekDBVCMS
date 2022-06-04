@@ -320,7 +320,7 @@ class CMS {
 
 				$options = SleekDB::Store($value['join']['foreing_table'], $this->store_path, $this->options)->fetch();
 
-				// Si se puede hacer JOIN
+ 				// Si se puede hacer JOIN
 				if(isset($value['join'])){
 					$text .= '<br><small><i class="text-dark"><b>join</b> '.$value['join']['foreing_table'].'</i></small>';
 					$text .= $this->editable($action,['table'=>$table,'name'=>$name,'type'=>'select','options' => $options],(isset($data[$name]) ? $data[$name] : null));
@@ -445,17 +445,22 @@ class CMS {
 					}
 
 					$text_display = null;
-					if($foreing_display){
-						foreach($foreing_display as $displayv){
-
-							$text_display .= $options['options'][0][$displayv].' ';	
-						}						
-					}
+		 
 
 
 					$input = '<select name="'.$options['name'].'" class="form-control '.(isset($options['class']) ?? $options['class']).'" '.(isset($options['any']) ?? $options['any']).' />';
 						$input .= '<option selected></option>';
 					foreach($options['options'] as $option){
+
+
+					if($foreing_display){
+						foreach($foreing_display as $displayv){
+
+							$text_display .= $option[$displayv].' ';	
+						}						
+					}
+
+
 							$input .= '<option value="'.$option['_id'].'" '. (($value == $option['_id']) ? 'selected' : '') .'>'.$text_display.'</option>';				
 					}
 
