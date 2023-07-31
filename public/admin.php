@@ -1,5 +1,5 @@
 <?php
-require '../Core.php'; 
+require '../Bootstrap.php';
 
 if(!$cms->isLogged()){
     if(isset($_POST['login'])){
