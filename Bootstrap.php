@@ -15,7 +15,6 @@ if (!file_exists($curDir . '/vendor/autoload.php')) {
 }
 
 require_once $curDir . '/Config.php';
-require_once $curDir . '/Router.php';
 require_once $curDir . '/vendor/autoload.php';
 
 // If public path is not defined or not exists, error

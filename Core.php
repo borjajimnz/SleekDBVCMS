@@ -32,6 +32,7 @@ class Core
         ]
     ];
 
+    var $_editable = ['text', 'textarea', 'password', 'checkbox', 'select'];
 
     function __construct($config)
     {
@@ -386,9 +387,12 @@ class Core
 
     }
 
-
-    var $_editable = ['text', 'textarea', 'password', 'checkbox', 'select'];
-
+    /**
+     * @param $action
+     * @param $options
+     * @param $value
+     * @return string|void
+     */
     function editable($action, $options = null, $value = null)
     {
 
@@ -474,54 +478,74 @@ class Core
 
     }
 
-    /*
-        TRANSLATIONS
-    */
-
-    // Return the translated string give if exists (used in CMS admin.php)
+    /**
+     * Return the translated string give if exists (used in CMS admin.php)
+     *
+     * @param $key
+     * @return mixed|void
+     */
     function __translate($key)
     {
         $data = $this->row($this->database->translation->where('key', '=', $key)->where('language', '=', $this->language)->limit(1)->fetch());
         if ($data) return $data['value'];
     }
 
-    // Return the translated string given if exists.
+
+    /**
+     * Return the translated string given if exists.
+     *
+     * @param $key
+     * @return mixed
+     */
     function __($key)
     {
         return $key;
     }
 
-    // Prints the translated string given if exists.
+
+    /**
+     * @param $key
+     * @return void
+     */
     function _($key)
     {
         print $this->__($key);
     }
 
-
-    /*
-        HELPERS
-    */
-
-    // Get current datetime
+    /**
+     * @return string
+     */
     function now()
     {
         return date("Y-m-d H:i:s");
     }
 
-    // Redirect
+
+    /**
+     * @param $url
+     * @param $alert
+     * @return void
+     */
     function redirect($url, $alert = null)
     {
         header('Location: ' . $url);
         $_SESSION['notifications'] = $alert;
     }
 
-    //update config
+
+    /**
+     * @param $data
+     * @return void
+     */
     function updateConfig($data)
     {
         file_put_contents(__DIR__ . '/.default_stores', $data);
     }
 
-    //backup
+
+    /**
+     * @return false
+     */
     function backup()
     {
         $destination = __DIR__ . '/backups/' . time() . '.zip';
@@ -564,7 +588,11 @@ class Core
         return $zip->close();
     }
 
-    // read file
+
+    /**
+     * @param $path
+     * @return false|string|void
+     */
     function readFile($path)
     {
         $myfile = fopen($this->root_path . $path, "r") or die("Unable to open config file!");
@@ -573,14 +601,21 @@ class Core
         return $file;
     }
 
-    // is valid json
+    /**
+     * @param $string
+     * @return bool
+     */
     function isValidJson($string)
     {
         json_decode($string);
         return json_last_error() === JSON_ERROR_NONE;
     }
 
-    // flatten
+
+    /**
+     * @param array $array
+     * @return array
+     */
     function flatten(array $array)
     {
         $return = array();
@@ -590,6 +625,10 @@ class Core
         return $return;
     }
 
+    /**
+     * @param $array
+     * @return false|string
+     */
     function toJson($array)
     {
         return json_encode($array);

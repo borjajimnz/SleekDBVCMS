@@ -258,29 +258,6 @@ fclose($myfile);
                                         }
                                     ?>
                                     </p>
-
-                                    <hr/>
-
-                                    <p class="mb-2">
-
-                                        <div>Go to "index.php" and edit the router.</div>
-
-                                        <div class="mt-2 mb-2">
-                                            <code class="inline-block">
-                                                $router->add('/users',function() use ($cms) {<br>
-                                                <div class="ml-4">print $cms->toJson($cms->store('users')->findAll());</div>
-                                                });
-                                            </code>
-
-                                        </div>
-
-                                        <hr/>
-
-                                        <p class="mt-2">If you access to: <a href="/users">/users</a> you will see this results:</p>
-
-                                        <code>[{"username":"admin","password":"$2y$10$DEIuc8wjZ12Y\/iMXclAPPO2NWwnvN4xlgk5f5EjYTy\/UuyGEDHbUy","email":"admin@admin.com","created":"","_id":1}]</code>
-
-                                    </p>
                                 </div>
 
                                
