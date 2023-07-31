@@ -1,4 +1,6 @@
 /vendor
 /storage/stores
 composer.lock
+/storage/public
+!/storage/public/readme.txt
 

@@ -459,7 +459,7 @@ class Core
                 case 'image':
                     $img = '<input type="hidden" name="' . $options['name'] . '" value="' . $value . '">';
                     if (!empty($value)) {
-                        $img .= '<br><img src="public' . $value . '" loading="lazy" class="m-2">';
+                        $img .= '<br><img src="' . $value . '" loading="lazy" class="m-2 w-100">';
                     }
                     $img .= '<input type="file" name="' . $options['name'] . '" class="form-control ' . (isset($options['class']) ?? $options['class']) . '" ' . (isset($options['any']) ?? $options['any']) . ' /><br><b>' . $this->__('allowed_extensions') . '</b>: ' . implode(', ', $this->allowed_extensions);
                     return $img;
