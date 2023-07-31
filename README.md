@@ -39,3 +39,18 @@ Enjoy!
 ### Backend CRUD Form
 ![CRUD Form](https://raw.githubusercontent.com/vorja/SleekDBVCMS/main/demo/edit.PNG)
 
+---
+
+### When setting up your config, you are allow to use the following html components:
+- text
+- textarea
+- rich_textarea
+- image
+- color
+- url
+- number
+- decimal
+- email
+- datetime
+
+You have an example in the **"post"** store.
