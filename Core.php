@@ -118,10 +118,10 @@ class Core
 
         $passwordChecked = password_verify($password, $user['password']);
 
-        // If the user exists, redirect to admin.php
+        // If the user exists, redirect to index.php
         if ($passwordChecked) {
             $_SESSION['logged'] = $user;
-            $this->redirect("admin.php");
+            $this->redirect("index.php");
         } else {
             return 'Invalid user/password';
         }
@@ -132,7 +132,7 @@ class Core
     function logout()
     {
         unset($_SESSION['logged']);
-        $this->redirect("admin.php");
+        $this->redirect("index.php");
     }
 
     /*
@@ -305,7 +305,7 @@ class Core
 
         // IF action is not view_row
         if ($action != 'view_row') $text .= '<button name="' . $action . '" class="mt-3 mr-2 btn btn-primary">' . $this->__($action) . '</button>';
-        $text .= '<a href="admin.php?p=' . $_GET['p'] . '" class="mt-3 btn btn-danger">' . $this->__('cancel') . '</a>';
+        $text .= '<a href="index.php?p=' . $_GET['p'] . '" class="mt-3 btn btn-danger">' . $this->__('cancel') . '</a>';
 
         $text .= '</form>';
         return $text;
@@ -479,7 +479,7 @@ class Core
     }
 
     /**
-     * Return the translated string give if exists (used in CMS admin.php)
+     * Return the translated string give if exists (used in CMS index.php)
      *
      * @param $key
      * @return mixed|void
