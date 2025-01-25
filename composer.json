@@ -20,7 +20,8 @@
    },
    "autoload":{
       "psr-4":{
-         "SleekDB\\":"src/"
+         "SleekDB\\":"src/",
+         "SleekDBVCMS\\":"src/"
       }
    },
    "scripts":{

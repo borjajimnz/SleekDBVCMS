@@ -10,7 +10,7 @@
             ]
          }
       },
-	"subcategory":{
+      "subcategory":{
          "join":{
             "key":"subcategory",
             "foreing_table":"subcategories",
@@ -29,12 +29,93 @@
       "number":"number",
       "decimal":"decimal",
       "email":"email",
-      "created":"datetime"
+      "created":"datetime",
+      "status": {
+         "join": {
+            "key": "status",
+            "foreing_table": "statuses",
+            "foreing_key": "_id",
+            "foreing_display": ["name"]
+         }
+      }
    },
    "categories":{
-      "name":"text"
-    },
+      "name":"text",
+      "description":"textarea",
+      "icon":"text",
+      "order":"number"
+   },
    "subcategories":{
-      "name":"text"
-    }
-}                                                                                                                                                                                                                                                                                                                                                    
+      "name":"text",
+      "description":"textarea",
+      "category":{
+         "join":{
+            "key":"category",
+            "foreing_table":"categories",
+            "foreing_key":"_id",
+            "foreing_display":["name"]
+         }
+      },
+      "order":"number"
+   },
+   "products":{
+      "name":"text",
+      "description":"rich_textarea",
+      "price":"decimal",
+      "sale_price":"decimal",
+      "sku":"text",
+      "stock":"number",
+      "category":{
+         "join":{
+            "key":"category",
+            "foreing_table":"categories",
+            "foreing_key":"_id",
+            "foreing_display":["name"]
+         }
+      },
+      "images":"image",
+      "featured":"checkbox",
+      "status": {
+         "join": {
+            "key": "status",
+            "foreing_table": "statuses",
+            "foreing_key": "_id",
+            "foreing_display": ["name"]
+         }
+      },
+      "created":"datetime"
+   },
+   "users":{
+      "username":"text",
+      "email":"email",
+      "password":"password",
+      "role": {
+         "join": {
+            "key": "role",
+            "foreing_table": "roles",
+            "foreing_key": "_id",
+            "foreing_display": ["name"]
+         }
+      },
+      "avatar":"image",
+      "created":"datetime"
+   },
+   "roles":{
+      "name":"text",
+      "description":"textarea",
+      "permissions":"textarea"
+   },
+   "statuses":{
+      "name":"text",
+      "color":"color",
+      "description":"textarea"
+   },
+   "media":{
+      "title":"text",
+      "description":"textarea",
+      "file":"image",
+      "type":"text",
+      "size":"number",
+      "uploaded":"datetime"
+   }
+}                                  
