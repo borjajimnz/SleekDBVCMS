@@ -2,31 +2,16 @@
 
 namespace SleekDBVCMS\Forms\Types;
 
-use SleekDBVCMS\Forms\InputTypeInterface;
+use SleekDBVCMS\Forms\AbstractType;
 
-class TextType implements InputTypeInterface
+class TextType extends AbstractType
 {
     public function render(string $name, $value = null, array $attributes = []): string
     {
-        $attrs = $this->buildAttributes(array_merge([
-            'type' => 'text',
-            'name' => $name,
-            'value' => $value,
-            'class' => 'form-control'
-        ], $attributes));
+        $attrs = $this->buildAttributes($this->getDefaultAttributes($name, $value, array_merge([
+            'type' => 'text'
+        ], $attributes)));
 
         return sprintf('<input %s>', $attrs);
-    }
-
-    protected function buildAttributes(array $attributes): string
-    {
-        $attrs = [];
-        foreach ($attributes as $key => $value) {
-            if ($value === null) {
-                continue;
-            }
-            $attrs[] = sprintf('%s="%s"', $key, htmlspecialchars($value));
-        }
-        return implode(' ', $attrs);
     }
 }
