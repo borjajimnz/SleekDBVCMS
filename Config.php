@@ -1,22 +1,29 @@
 <?php
 
-// Database Configuration
-$myfile = fopen(__DIR__.'/.default_stores', "r") or die("Unable to open config file!");
-$default_stores = json_decode(fread($myfile,filesize(__DIR__.'/.default_stores')),true);
-fclose($myfile);
+// Load default stores from JSON file
+$defaultStoresFile = __DIR__ . '/.default_stores';
+$defaultStores = [];
 
-// Other options
+if (file_exists($defaultStoresFile)) {
+    $jsonContent = file_get_contents($defaultStoresFile);
+    if ($jsonContent !== false) {
+        $defaultStores = json_decode($jsonContent, true) ?: [];
+    }
+}
+
+// Define configuration array
 $config = [
-	'app_name' => 'SleekdbVCMS',
-	'public_path' => dirname(__FILE__).'/public', // DIRECTORY where your index.php should be.
-	'locale' => 'es',
-	'stores' => $default_stores,
-	'upload_files_extensions_allowed' => [
-		'image/jpeg' => 'jpeg', 
-		'text/xml' => 'xml',
-	],
-	'options' => [
-		'auto_cache' => false,
-		'timeout' => 121
-	],
-];                                                                                                      
+    'app_name' => 'SleekdbVCMS',
+    'public_path' => dirname(__FILE__).'/public',
+    'locale' => 'es',
+    'stores' => $defaultStores,
+    'upload_files_extensions_allowed' => [
+        'image/jpeg' => 'jpeg',
+        'image/png' => 'png',
+        'text/xml' => 'xml',
+    ],
+    'options' => [
+        'auto_cache' => false,
+        'timeout' => 121
+    ],
+];

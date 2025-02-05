@@ -1,56 +1,178 @@
-# SleekDBVCMS - CRUD & CMS NO-SQL SYSTEM
- SleekDBVCMS - The missing & simple CMS for [SleekDB](https://link-url-here.org) Created by [Timu57](https://github.com/Timu57) with the great support of [rakibtg](https://github.com/rakibtg).
+# SleekDBVCMS - Modern NoSQL Content Management System
 
- SleekDB is a **flat NO-SQL database implemented in PHP without any third-party dependencies**. The files are stored in folders as JSON.
- 
+SleekDBVCMS is a lightweight, modern CMS built on top of [SleekDB](https://sleekdb.github.io/) - a simple and efficient NoSQL database implemented in PHP. This CMS provides a clean, intuitive interface for managing content without the complexity of traditional database systems.
+
+## Features
+
+- **Modern Architecture**: Built following SOLID and KISS principles
+- **Secure Authentication**: Built-in user management with secure password hashing
+- **Dynamic Content Types**: Create custom content types with various field types
+- **Media Management**: Built-in image upload and management
+- **Responsive Design**: Modern Bootstrap-based UI that works on all devices
+- **Extensible**: Easy to extend with new field types and features
+- **Rich Text Editor**: Integrated TinyMCE for content editing
+- **Fast & Light**: No heavy database requirements, runs on simple PHP
+
+## Requirements
+
+- PHP >= 8.1
+- ext-json
+- Composer
+
 ## Installation
 
-Download the ZIP and upload anywhere you want, then type:
-`composer install`
+1. Clone the repository:
+```bash
+git clone https://github.com/borjajimnz/SleekDBVCMS.git
+cd SleekDBVCMS
+```
+
+2. Install dependencies:
+```bash
+composer install
+```
+
+3. Set permissions:
+```bash
+chmod -R 777 storage
+chmod -R 777 public
+```
+
+4. Start the development server:
+```bash
+cd public
+php -S localhost:8000
+```
+
+5. Access the CMS at `http://localhost:8000`
+
+Default credentials:
+- Username: admin
+- Password: password
 
 ## Configuration
 
-Open the Config.php to configure and fits your needs.
+### Basic Configuration
 
-## Instructions
+Edit `config.php` to customize your installation:
 
-Go to **public** folder
-start your php server with ``php -S localhost:8000``
+```php
+return [
+    'app_name' => 'Your App Name',
+    'public_path' => __DIR__ . '/public',
+    'locale' => 'en',
+    'upload_files_extensions_allowed' => [
+        'image/jpeg' => 'jpeg',
+        'image/png' => 'png',
+        'text/xml' => 'xml',
+    ],
+    'options' => [
+        'auto_cache' => false,
+        'timeout' => 121
+    ],
+];
+```
 
-By default, it will create a users store(table), and a record with the following data:
+### Content Types
 
-**Username:** admin
+Define your content types in `.default_stores` using JSON:
 
-**Password:** password
+```json
+{
+    "posts": {
+        "title": "text",
+        "content": "rich_textarea",
+        "image": "image",
+        "published": "datetime"
+    },
+    "products": {
+        "name": "text",
+        "price": "decimal",
+        "description": "textarea",
+        "featured": "checkbox"
+    }
+}
+```
 
-Enjoy!
+## Available Field Types
 
-## Demo
+- **text**: Simple text input
+- **textarea**: Multi-line text input
+- **rich_textarea**: TinyMCE rich text editor
+- **password**: Secure password field with hashing
+- **image**: Image upload with preview
+- **color**: Color picker
+- **url**: URL input with validation
+- **number**: Numeric input
+- **decimal**: Decimal number input
+- **email**: Email input with validation
+- **datetime**: Date and time picker
+
+## Architecture
+
+SleekDBVCMS follows a modern, object-oriented architecture:
+
+### Core Components
+
+- **Core**: Central service container and application core
+- **DatabaseInterface**: Database abstraction layer
+- **AuthenticationService**: Handles user authentication
+- **FileManager**: Manages file uploads and storage
+- **FormBuilder**: Generates dynamic forms
+- **ConfigurationService**: Manages application configuration
+
+### Directory Structure
+
+```
+src/
+├── Controllers/
+│   └── AdminController.php
+├── Forms/
+│   ├── InputTypeInterface.php
+│   └── Types/
+├── Interfaces/
+│   ├── DatabaseInterface.php
+│   └── AuthenticationInterface.php
+├── Services/
+│   ├── AuthenticationService.php
+│   ├── ConfigurationService.php
+│   ├── FileManager.php
+│   └── SleekDBManager.php
+└── Views/
+    ├── dashboard.php
+    ├── form.php
+    ├── layout.php
+    ├── login.php
+    └── table.php
+```
+
+## Screenshots
 
 ### Login Screen
-![Demo](https://raw.githubusercontent.com/vorja/SleekDBVCMS/main/demo/login.PNG)
+![Login Screen](demo/login.PNG)
 
 ### Dashboard
-![Dashboard](https://raw.githubusercontent.com/vorja/SleekDBVCMS/main/demo/dashboard.PNG)
+![Dashboard](demo/dashboard.PNG)
 
-### Backend CRUD Table
-![CRUD Table](https://raw.githubusercontent.com/vorja/SleekDBVCMS/main/demo/table.PNG)
+### Content Management
+![CRUD Table](demo/table.PNG)
 
-### Backend CRUD Form
-![CRUD Form](https://raw.githubusercontent.com/vorja/SleekDBVCMS/main/demo/edit.PNG)
+### Content Editing
+![CRUD Form](demo/edit.PNG)
 
----
+## Contributing
 
-### When setting up your config, you are allow to use the following html components:
-- text
-- textarea
-- rich_textarea
-- image
-- color
-- url
-- number
-- decimal
-- email
-- datetime
+1. Fork the repository
+2. Create your feature branch: `git checkout -b feature/my-feature`
+3. Commit your changes: `git commit -am 'Add new feature'`
+4. Push to the branch: `git push origin feature/my-feature`
+5. Submit a pull request
 
-You have an example in the **"post"** store.
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Credits
+
+- SleekDB created by [Timu57](https://github.com/Timu57) with support from [rakibtg](https://github.com/rakibtg)
+- CMS implementation by [borjajimnz](https://github.com/borjajimnz)

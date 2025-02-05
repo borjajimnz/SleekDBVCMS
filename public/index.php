@@ -1,4 +1,5 @@
 <?php
+
 require '../Bootstrap.php';
 
 if(!$cms->isLogged()){
