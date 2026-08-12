@@ -25,6 +25,17 @@ if (!file_exists($curDir . '/vendor/autoload.php')) {
     die('Error - Did you /composer install? <br> We can\'t find "autoload.php" file inside "vendor" directory');
 }
 
+/**
+ * Versioned URL for the compiled Tailwind CSS. The ?v= query (file mtime)
+ * busts the browser cache only when the CSS is rebuilt, while /dist/ can
+ * still be served with long-lived immutable cache headers.
+ */
+function cms_css_url(): string
+{
+    $file = dirname(__FILE__) . '/public/dist/tailwind.css';
+    return '/dist/tailwind.css?v=' . (file_exists($file) ? (int)@filemtime($file) : 0);
+}
+
 $config = null;
 require_once $curDir . '/Config.php';
 

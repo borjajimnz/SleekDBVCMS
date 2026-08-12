@@ -349,6 +349,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['lead_submit'])) {
     front_handle_lead_submit($cms, $stores, $visiblePages);
 }
 
+// ---- Browser cache for public pages ----
+// Published pages are static-ish for visitors; let the browser cache plain
+// GET responses briefly so repeat loads and crawlers skip the PHP render.
+// Preview requests and logged-in admins always get fresh content. Overrides
+// the no-store header PHP's session cache limiter would otherwise emit.
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && !$preview && !$cms->getAuth()->isLoggedIn()) {
+    header('Cache-Control: public, max-age=300');
+}
+
 // ---- Sitemap.xml ----
 function front_site_url(): string
 {

@@ -36,7 +36,23 @@
         }
 
         $ctx = ['cms' => $cms, 'config' => $frontConfig, 'stores' => $stores, 'blade' => $blade, 'page' => $pageSlug];
+
+        // Preload the LCP image (first hero module) so the browser starts
+        // fetching it before the render-blocking CSS is done.
+        $lcpImage = '';
+        foreach ($modules as $m) {
+            if (is_array($m) && ($m['type'] ?? '') === 'hero' && !empty($m['image'])) {
+                $lcpImage = $m['image'];
+                break;
+            }
+        }
     @endphp
+
+    @if ($lcpImage)
+        @push('head_extra')
+            <link rel="preload" as="image" href="{{ $lcpImage }}" fetchpriority="high">
+        @endpush
+    @endif
 
     <div class="space-y-12">
         @if ($previewBanner)

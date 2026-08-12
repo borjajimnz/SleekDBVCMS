@@ -7,7 +7,7 @@
 @endphp
 <section class="relative rounded-2xl overflow-hidden bg-gray-900 text-white">
     @if ($image)
-        <img src="{{ $image }}" class="absolute inset-0 w-full h-full object-cover opacity-40" alt="">
+        <img src="{{ $image }}" fetchpriority="high" decoding="async" class="absolute inset-0 w-full h-full object-cover opacity-40" alt="">
     @endif
     <div class="relative px-6 py-20 text-center">
         @if ($title)

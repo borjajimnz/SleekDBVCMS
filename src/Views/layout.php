@@ -37,7 +37,7 @@ function cms_store_link(string $name, ?string $current): string
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?php print htmlspecialchars($siteName); ?></title>
-    <link href="/dist/tailwind.css" rel="stylesheet">
+    <link href="<?php print cms_css_url(); ?>" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
     <script>

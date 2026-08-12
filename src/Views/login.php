@@ -8,7 +8,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?php print $core->getConfig()->get('app_name', 'SleekDBVCMS'); ?></title>
-    <link href="/dist/tailwind.css" rel="stylesheet">
+    <link href="<?php print cms_css_url(); ?>" rel="stylesheet">
     <script>
         (function () {
             var stored = localStorage.getItem('cms-theme');

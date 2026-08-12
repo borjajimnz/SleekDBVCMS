@@ -32,7 +32,7 @@ npm run build:css    # compiles tailwind/input.css -> public/dist/tailwind.css (
 ```
 
 - Config: `tailwind.config.js` (`darkMode: 'class'`). Content globs scan `public/**/*.blade.php`, `public/*.php`, `src/**/*.php`, and `storage/stores/**/*.json` + `storage/settings.json` (so classes used in stored content are picked up too).
-- The `<link href="/dist/tailwind.css">` lives in `src/Views/layout.php`, `src/Views/login.php`, and `public/views/layout.blade.php`. Theme flash-prevention and dark-class toggling scripts remain inline.
+- The CSS is referenced via `cms_css_url()` (defined in `Bootstrap.php`), which appends `?v=<file mtime>` so a rebuild busts the browser cache while nginx still serves `/dist/` with long-lived `immutable` headers. The `<link>` lives in `src/Views/layout.php`, `src/Views/login.php`, and `public/views/layout.blade.php`. Theme flash-prevention and dark-class toggling scripts remain inline.
 
 ## Production deployment (this server)
 

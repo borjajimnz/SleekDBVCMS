@@ -10,7 +10,8 @@
     @hasSection('meta_description')
         <meta name="description" content="@yield('meta_description')">
     @endif
-    <link href="/dist/tailwind.css" rel="stylesheet">
+    <link href="{{ cms_css_url() }}" rel="stylesheet">
+    @stack('head_extra')
     <script>
         (function () {
             var stored = localStorage.getItem('front-theme');
