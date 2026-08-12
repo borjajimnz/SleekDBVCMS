@@ -7,6 +7,11 @@
 /** @var bool $isProtected */
 
 $isProtected = $isProtected ?? $core->getConfig()->isProtected($table);
+
+// The modules JSON is edited via the page form, not shown as a table column.
+if ($table === 'pages') {
+    unset($fields['modules']);
+}
 ?>
 <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
     <div class="flex-1">
