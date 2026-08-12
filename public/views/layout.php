@@ -53,7 +53,7 @@ $currentPage = $pageSlug ?? ($storeName !== null ? 'store-' . $storeName : null)
                     <?php foreach ($navPages as $nav) {
                         $isActive = $currentPage === ($nav['slug'] ?? '');
                         ?>
-                        <a href="/?page=<?php print urlencode($nav['slug'] ?? ''); ?>"
+                        <a href="/<?php print urlencode($nav['slug'] ?? ''); ?>"
                            class="px-3 py-1.5 rounded-lg text-sm whitespace-nowrap <?php print $isActive ? 'bg-blue-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'; ?>"><?php print front_escape($nav['title'] ?? 'Page'); ?></a>
                     <?php } ?>
                     <button onclick="toggleTheme()" title="Toggle theme"

@@ -22,7 +22,7 @@ ob_start();
             <?php foreach ($rows as $row) {
                 $img = front_image_of($frontConfig, $row, $fields);
                 ?>
-                <a href="/?store=<?php print urlencode($storeName); ?>&id=<?php print (int)$row['_id']; ?>"
+                <a href="<?php print front_item_url($storeName, $row['_id']); ?>"
                    class="group bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col">
                     <?php if ($img) { ?>
                         <div class="aspect-video bg-gray-100 dark:bg-gray-800 overflow-hidden">

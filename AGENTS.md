@@ -42,7 +42,7 @@ There is **no test suite** and no `npm`/`yarn` — verify by HTTP calls (see Ver
   - `SleekDBManager` — `DatabaseInterface` impl; wraps `SleekDB\Store`.
   - `AuthenticationService` — login/logout/session (`$_SESSION['logged']`), `setLanguage`.
   - `ConfigurationService` — loads `Config.php` + `.default_stores` JSON; enforces system stores; `getStores()`, `saveStoresFromJson()`.
-  - `FileManager` — uploads to `storage/public/FY/`, returns `/storage/FY/file`.
+  - `FileManager` — uploads to `storage/public/FY/`, returns `/storage/FY/file`. Raster uploads (jpeg/png/gif/webp) are downscaled to `options.image_max_side` and converted to WebP at `options.image_quality` (GD; EXIF orientation applied to JPEG).
   - `Logger` — writes `storage/logs/cms.log`; registers exception/error handlers.
 - `src/Controllers/AdminController.php` — all admin routes/actions; sanitizes `pages.modules` on save.
 - `src/Forms/FormBuilder.php` + `src/Forms/Types/*` — input rendering per field type.
@@ -53,7 +53,7 @@ There is **no test suite** and no `npm`/`yarn` — verify by HTTP calls (see Ver
 
 ## Config model
 
-- `Config.php` — PHP array: `app_name`, `public_path`, `locale`, `upload_files_extensions_allowed`, `options`. **Note:** it sets `$config` at global scope; `Bootstrap.php` uses `require_once` (no `return`).
+- `Config.php` — PHP array: `app_name`, `public_path`, `locale`, `upload_files_extensions_allowed`, `options` (incl. `image_max_side` default 1920, `image_quality` default 80). **Note:** it sets `$config` at global scope; `Bootstrap.php` uses `require_once` (no `return`).
 - `.default_stores` — JSON defining content types. Format:
   ```json
   {
@@ -89,12 +89,13 @@ There is **no test suite** and no `npm`/`yarn` — verify by HTTP calls (see Ver
 - `GET /cms/?backup=1` — zip of `storage/`
 - `GET /cms/?logout=1`
 
-**Public front** (`/`):
+**Public front** (`/`) — path-based router in `public/index.php` (parses `REQUEST_URI`; nginx `try_files`/Apache `.htaccess` funnel all non-file paths to `index.php`):
 - `GET /` — home = the page marked `is_home` in the `pages` store
-- `GET /?page=<slug>` — a page from the `pages` store
-- `GET /?page=<slug>&preview=1` — preview an unpublished page (needs admin session)
-- `GET /?store=<name>` — listing of a store (used by `store_list` modules; joins resolved, images shown)
-- `GET /?store=<name>&id=N` — detail page
+- `GET /<page-slug>` — a page from the `pages` store (page wins over a store with the same name)
+- `GET /<page-slug>?preview=1` — preview an unpublished page (needs admin session)
+- `GET /<store>` — listing of a store (used by `store_list` modules; joins resolved, images shown)
+- `GET /<store>/<id>` — detail page
+- Legacy query URLs (`?page=` / `?store=` / `?store=&id=`) still work and are 301-redirected to the pretty form (skipped when a page slug collides with the store name). Helpers: `front_store_url()`, `front_item_url()` in `public/index.php`.
 - Only stores listed in `public/config.php` `menu` are reachable (users/roles excluded by default).
 
 ## Pages & modules (template collection + per-page instances)
@@ -115,7 +116,7 @@ There is **no test suite** and no `npm`/`yarn` — verify by HTTP calls (see Ver
 - Supported types (rendered by `front_render_module()` in `public/index.php`):
   - `hero` — `title`, `subtitle`, `image`, `cta_text`, `cta_url`
   - `text` — `html` (rich HTML)
-  - `store_list` — `store`, `limit`, `title` (renders store cards, links to `/?store=`)
+  - `store_list` — `store`, `limit`, `title` (renders store cards, links to `/store`)
   - `html` — `html` (free HTML/iframe)
   - `store_item` — `store`, `item_id`, `title` (featured single record; reads `item_id`, not `id`)
 - `public/views/page.php` resolves each `modules` entry: instance objects (arrays) and legacy inline module arrays are passed straight to `front_render_module()`; bare numeric ids are looked up in the `modules` store (backward compat).
@@ -149,7 +150,8 @@ The Core mitigates this in `ensureStorageWritable()` (called from `Bootstrap.php
 ```bash
 cd /tmp
 curl -sk -o /dev/null -w "front home: %{http_code}\n" https://127.0.0.1/ -H "Host: cms.almiapps.com"
-curl -sk -o /dev/null -w "front list: %{http_code}\n" "https://127.0.0.1/?store=posts" -H "Host: cms.almiapps.com"
+curl -sk -o /dev/null -w "front list: %{http_code}\n" "https://127.0.0.1/posts" -H "Host: cms.almiapps.com"
+curl -sk -o /dev/null -w "front detail: %{http_code}\n" "https://127.0.0.1/posts/2" -H "Host: cms.almiapps.com"
 curl -sk -c c.txt -o /dev/null -w "cms login page: %{http_code}\n" https://127.0.0.1/cms/ -H "Host: cms.almiapps.com"
 curl -sk -c c.txt -o /dev/null -w "cms login: %{http_code}\n" -X POST -d "username=admin&password=password&login=1" https://127.0.0.1/cms/ -H "Host: cms.almiapps.com"
 curl -sk -b c.txt -o /dev/null -w "cms dashboard: %{http_code}\n" https://127.0.0.1/cms/index.php -H "Host: cms.almiapps.com"

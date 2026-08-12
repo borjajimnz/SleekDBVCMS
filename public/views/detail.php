@@ -15,7 +15,7 @@ $img = front_image_of($frontConfig, $row, $fields);
     <nav class="text-sm text-gray-500 dark:text-gray-400">
         <a href="/" class="hover:underline">Home</a>
         <span class="mx-1">/</span>
-        <a href="/?store=<?php print urlencode($storeName); ?>" class="hover:underline"><?php print front_escape(front_label($frontConfig, $storeName)); ?></a>
+        <a href="<?php print front_store_url($storeName); ?>" class="hover:underline"><?php print front_escape(front_label($frontConfig, $storeName)); ?></a>
         <span class="mx-1">/</span>
         <span>#<?php print (int)$row['_id']; ?></span>
     </nav>
@@ -80,7 +80,7 @@ $img = front_image_of($frontConfig, $row, $fields);
     </article>
 
     <div>
-        <a href="/?store=<?php print urlencode($storeName); ?>" class="inline-flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:underline">
+        <a href="<?php print front_store_url($storeName); ?>" class="inline-flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:underline">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
             Back to <?php print front_escape(front_label($frontConfig, $storeName)); ?>
         </a>

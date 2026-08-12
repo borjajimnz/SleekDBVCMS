@@ -6,12 +6,14 @@ use SleekDBVCMS\Core;
 
 /**
  * Public front controller.
- * Routes:
+ * Routes (pretty URLs via REQUEST_URI; nginx/Apache funnel all paths to this file):
  *   /                          -> home page (the page marked is_home)
- *   /?page=<slug>              -> a page from the protected "pages" store
- *   /?page=<slug>&preview=1    -> preview an unpublished page (admin session)
- *   /?store=<name>             -> listing of a store (used by store_list modules)
- *   /?store=<name>&id=N        -> detail of one record
+ *   /<page-slug>               -> a page from the protected "pages" store
+ *   /<page-slug>?preview=1     -> preview an unpublished page (admin session)
+ *   /<store>                   -> listing of a store (used by store_list modules)
+ *   /<store>/<id>              -> detail of one record
+ * Legacy query URLs (?page= / ?store=) are accepted and 301-redirected to the
+ * pretty form so old links keep working with a single canonical URL.
  */
 
 $frontConfig = require __DIR__ . '/config.php';
@@ -46,6 +48,16 @@ function front_excerpt(string $text, int $len = 120): string
         return $text;
     }
     return mb_substr($text, 0, $len) . '…';
+}
+
+function front_store_url(string $name): string
+{
+    return '/' . rawurlencode($name);
+}
+
+function front_item_url(string $name, $id): string
+{
+    return front_store_url($name) . '/' . (int)$id;
 }
 
 function front_image_of(array $config, array $row, array $fields): string
@@ -189,7 +201,7 @@ function front_render_module(array $module, array $ctx): string
             if ($title) {
                 $out .= '<div class="flex items-center justify-between mb-4">';
                 $out .= '<h2 class="text-xl font-semibold">' . front_escape($title) . '</h2>';
-                $out .= '<a href="/?store=' . urlencode($store) . '" class="text-sm text-blue-600 dark:text-blue-400 hover:underline">View all →</a>';
+                $out .= '<a href="' . front_store_url($store) . '" class="text-sm text-blue-600 dark:text-blue-400 hover:underline">View all →</a>';
                 $out .= '</div>';
             }
             if (empty($rows)) {
@@ -198,7 +210,7 @@ function front_render_module(array $module, array $ctx): string
                 $out .= '<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">';
                 foreach ($rows as $row) {
                     $img = front_image_of($frontConfig, $row, $fields);
-                    $out .= '<a href="/?store=' . urlencode($store) . '&id=' . (int)$row['_id'] . '" class="group bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm hover:shadow-md transition-shadow">';
+                    $out .= '<a href="' . front_item_url($store, $row['_id']) . '" class="group bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm hover:shadow-md transition-shadow">';
                     if ($img) {
                         $out .= '<div class="aspect-video bg-gray-100 dark:bg-gray-800 overflow-hidden"><img src="' . front_escape($img) . '" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform" alt=""></div>';
                     }
@@ -249,7 +261,7 @@ function front_render_module(array $module, array $ctx): string
             if ($title) {
                 $out .= '<h2 class="text-xl font-semibold mb-4">' . front_escape($title) . '</h2>';
             }
-            $out .= '<a href="/?store=' . urlencode($store) . '&id=' . $id . '" class="block bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm hover:shadow-md transition-shadow sm:flex">';
+            $out .= '<a href="' . front_item_url($store, $id) . '" class="block bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm hover:shadow-md transition-shadow sm:flex">';
             if ($img) {
                 $out .= '<div class="sm:w-1/3 bg-gray-100 dark:bg-gray-800"><img src="' . front_escape($img) . '" loading="lazy" class="w-full h-full object-cover" alt=""></div>';
             }
@@ -278,9 +290,84 @@ function front_render_module(array $module, array $ctx): string
 }
 
 // ---- Routing ----
-$storeName = $_GET['store'] ?? null;
-$pageSlug = $_GET['page'] ?? null;
-$id = isset($_GET['id']) ? (int)$_GET['id'] : null;
+$path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+if ($path === false || $path === null) {
+    $path = '/';
+}
+$path = rtrim($path, '/');
+$segments = [];
+foreach (explode('/', $path) as $seg) {
+    if ($seg !== '') {
+        $segments[] = urldecode($seg);
+    }
+}
+if ($segments === ['index.php']) {
+    $segments = [];
+}
+
+$storeName = null;
+$pageSlug = null;
+$id = null;
+
+// Legacy query-string routes -> 301 redirect to the pretty URL.
+if ($segments === []) {
+    if (isset($_GET['page'])) {
+        $target = '/' . rawurlencode((string)$_GET['page']);
+        if (isset($_GET['preview'])) {
+            $target .= '?preview=1';
+        }
+        header('Location: ' . $target, true, 301);
+        exit;
+    }
+    if (isset($_GET['store'])) {
+        $name = (string)$_GET['store'];
+        if (isset($stores[$name]) && isset($menuStores[$name])) {
+            $target = front_store_url($name);
+            if (isset($_GET['id'])) {
+                $target .= '/' . (int)$_GET['id'];
+            }
+            // A page whose slug equals the store name wins on the pretty route,
+            // so only redirect when there is no such page (legacy URL keeps working).
+            $pageConflict = false;
+            foreach ($visiblePages as $p) {
+                if ($p['slug'] === $name) {
+                    $pageConflict = true;
+                    break;
+                }
+            }
+            if (!$pageConflict) {
+                header('Location: ' . $target, true, 301);
+                exit;
+            }
+        }
+    }
+    $storeName = $_GET['store'] ?? null;
+    $pageSlug = $_GET['page'] ?? null;
+    $id = isset($_GET['id']) ? (int)$_GET['id'] : null;
+} elseif (count($segments) === 1) {
+    // Single segment: page slug wins, otherwise a store listing.
+    $pageSlug = $segments[0];
+    $isPage = false;
+    foreach ($visiblePages as $p) {
+        if ($p['slug'] === $pageSlug) {
+            $isPage = true;
+            break;
+        }
+    }
+    if (!$isPage) {
+        $storeName = $pageSlug;
+        $pageSlug = null;
+    }
+} else {
+    // Two+ segments: store detail.
+    $storeName = $segments[0];
+    $id = ctype_digit($segments[1]) ? (int)$segments[1] : null;
+    if ($id === null) {
+        http_response_code(404);
+        require __DIR__ . '/views/404.php';
+        exit;
+    }
+}
 
 // ---- Store listing/detail (secondary, for store_list/store_item) ----
 if ($storeName !== null) {
