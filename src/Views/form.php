@@ -50,6 +50,16 @@ $isView = $action === 'view_row';
                             $fieldOptions = [];
                         }
                         $fieldStores = array_keys($core->getConfig()->getStores());
+                        try {
+                            $fieldForms = [];
+                            foreach ($core->getDatabase()->findAll('forms', ['_id' => 'desc']) as $form) {
+                                $fieldForms[(string)$form['_id']] = trim((string)($form['title'] ?? '')) !== ''
+                                    ? $form['title']
+                                    : 'Form #' . $form['_id'];
+                            }
+                        } catch (\Throwable $e) {
+                            $fieldForms = [];
+                        }
                     } elseif ($fieldType === 'select' && $table === 'modules') {
                         if ($name === 'type') {
                             $fieldOptions = [
@@ -64,6 +74,13 @@ $isView = $action === 'view_row';
                             $fieldOptions = [];
                             foreach ($core->getConfig()->getStores() as $storeName => $storeDef) {
                                 $fieldOptions[$storeName] = $storeName;
+                            }
+                        } elseif ($name === 'form_id') {
+                            $fieldOptions = [];
+                            foreach ($core->getDatabase()->findAll('forms', ['_id' => 'desc']) as $form) {
+                                $fieldOptions[(string)$form['_id']] = trim((string)($form['title'] ?? '')) !== ''
+                                    ? $form['title']
+                                    : 'Form #' . $form['_id'];
                             }
                         }
                     } elseif ($fieldType === 'select' && $table === 'redirects') {
@@ -83,6 +100,9 @@ $isView = $action === 'view_row';
                     }
                     if (isset($fieldStores) && $fieldType === 'modules') {
                         $attrs['stores'] = $fieldStores;
+                    }
+                    if (isset($fieldForms) && $fieldType === 'modules') {
+                        $attrs['forms'] = $fieldForms;
                     }
                     if ($isView) {
                         $attrs['disabled'] = true;

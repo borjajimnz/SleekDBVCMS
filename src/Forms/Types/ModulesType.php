@@ -7,7 +7,7 @@ class ModulesType extends AbstractType
     // All fields a module instance can carry (matches the "modules" collection).
     private function moduleFields(): array
     {
-        return ['title', 'type', 'subtitle', 'image', 'cta_text', 'cta_url', 'html', 'store', 'limit', 'item_id', 'fields', 'notify_to', 'notify_cc', 'button_text', 'success_message'];
+        return ['title', 'type', 'subtitle', 'image', 'cta_text', 'cta_url', 'html', 'store', 'limit', 'item_id', 'form_id'];
     }
 
     // Maps each module field to the CMS form component used to edit it.
@@ -23,11 +23,7 @@ class ModulesType extends AbstractType
             'store' => 'select',
             'limit' => 'number',
             'item_id' => 'number',
-            'fields' => 'textarea',
-            'notify_to' => 'text',
-            'notify_cc' => 'text',
-            'button_text' => 'text',
-            'success_message' => 'text',
+            'form_id' => 'select',
         ];
     }
 
@@ -36,7 +32,8 @@ class ModulesType extends AbstractType
         $disabled = !empty($attributes['disabled']);
         $allModules = $attributes['options'] ?? [];
         $storeOptions = $attributes['stores'] ?? [];
-        unset($attributes['options'], $attributes['stores']);
+        $formOptions = $attributes['forms'] ?? [];
+        unset($attributes['options'], $attributes['stores'], $attributes['forms']);
 
         // Pre-render each editable field with the real CMS component.
         // name/id are stripped so inline module inputs never collide with the page form.
@@ -54,8 +51,16 @@ class ModulesType extends AbstractType
         foreach ($this->fieldTypes() as $field => $ft) {
             $attrs = [];
             if ($ft === 'select') {
-                $storeList = array_values($storeOptions);
-                $attrs['options'] = array_combine($storeList, $storeList) ?: [];
+                if ($field === 'form_id') {
+                    $formList = [];
+                    foreach ($formOptions as $formId => $formTitle) {
+                        $formList[$formId] = $formTitle;
+                    }
+                    $attrs['options'] = $formList;
+                } else {
+                    $storeList = array_values($storeOptions);
+                    $attrs['options'] = array_combine($storeList, $storeList) ?: [];
+                }
             }
             $html = $typeInstances[$ft]->render($field, null, $attrs);
             $templates[$field] = preg_replace('/\s+(name|id)="[^"]*"/', '', $html);
@@ -163,7 +168,7 @@ class ModulesType extends AbstractType
             html: ['html'],
             store_list: ['title', 'store', 'limit'],
             store_item: ['title', 'store', 'item_id'],
-            lead_form: ['title', 'subtitle', 'fields', 'notify_to', 'notify_cc', 'button_text', 'success_message']
+            lead_form: ['title', 'form_id']
         };
 
         var state = [];

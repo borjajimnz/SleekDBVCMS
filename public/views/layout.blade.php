@@ -10,10 +10,7 @@
     @hasSection('meta_description')
         <meta name="description" content="@yield('meta_description')">
     @endif
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = { darkMode: 'class' };
-    </script>
+    <link href="/dist/tailwind.css" rel="stylesheet">
     <script>
         (function () {
             var stored = localStorage.getItem('front-theme');

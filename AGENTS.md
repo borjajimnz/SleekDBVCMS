@@ -22,6 +22,18 @@ The **public front** is rendered with [jenssegers/blade](https://github.com/jens
 - Modules: `front_render_module($module, $ctx)` (`public/index.php`) dispatches to `modules.<type>` partials (`$ctx` carries `cms`, `config`, `stores`, `blade`).
 - The admin CMS (`src/Views/*.php`) is **not** Blade — it stays plain PHP templates.
 
+## Tailwind CSS build (no CDN)
+
+Tailwind is **compiled at build time** to `public/dist/tailwind.css` (served at `/dist/tailwind.css`). The Tailwind CDN (`cdn.tailwindcss.com`) is **not** used on any page — it penalizes PageSpeed. Rebuild after changing any Tailwind classes in templates:
+
+```bash
+npm install          # once, after clone
+npm run build:css    # compiles tailwind/input.css -> public/dist/tailwind.css (minified)
+```
+
+- Config: `tailwind.config.js` (`darkMode: 'class'`). Content globs scan `public/**/*.blade.php`, `public/*.php`, `src/**/*.php`, and `storage/stores/**/*.json` + `storage/settings.json` (so classes used in stored content are picked up too).
+- The `<link href="/dist/tailwind.css">` lives in `src/Views/layout.php`, `src/Views/login.php`, and `public/views/layout.blade.php`. Theme flash-prevention and dark-class toggling scripts remain inline.
+
 ## Production deployment (this server)
 
 - Live at: `https://cms.almiapps.com`
@@ -41,7 +53,7 @@ tail -f /var/www/SleekDBVCMS/storage/logs/cms.log # app error log (most useful)
 sudo tail -f /var/log/fpm-php.www.log             # PHP-FPM stderr/catch log
 ```
 
-There is **no test suite** and no `npm`/`yarn` — verify by HTTP calls (see Verify). The admin UI's `ModulesType` ships inline vanilla JS; validate it with `node --check`.
+There is **no test suite** — verify by HTTP calls (see Verify). The admin UI's `ModulesType` ships inline vanilla JS; validate it with `node --check`.
 
 ## Architecture (DI container, consolidated)
 
@@ -63,7 +75,7 @@ There is **no test suite** and no `npm`/`yarn` — verify by HTTP calls (see Ver
 - `src/Views/{layout,login,dashboard,table,form}.php` — server-rendered templates.
 - `src/Interfaces/` — `DatabaseInterface`, `AuthenticationInterface`.
 
-`Core.legacy.php` is the **retired monolith** (formerly `Core.php`). Do not reintroduce it; nothing references it.
+`Core.legacy.php` is retired — do not reintroduce it.
 
 ## Config model
 
@@ -79,7 +91,7 @@ There is **no test suite** and no `npm`/`yarn` — verify by HTTP calls (see Ver
     }
   }
   ```
-- Field types: `text`, `textarea`, `rich_textarea`, `password`, `image`, `color`, `url`, `number`, `decimal`, `email`, `datetime`, `date`, `checkbox`, `select`, `modules`, and `join` blocks.
+- Field types: `text`, `textarea`, `rich_textarea`, `password`, `image`, `color`, `url`, `number`, `decimal`, `email`, `datetime`, `date`, `checkbox`, `select`, `modules`, `form_fields`, and `join` blocks.
 - Editable at runtime from the dashboard (writes `.default_stores`).
 - `rich_textarea` renders a **Quill WYSIWYG editor** in the admin (CDN, `window.cmsRichText.init()` in `src/Views/layout.php` upgrades `.rich-editor` textareas; synced back to the hidden textarea on submit). The module builder also initializes Quill for dynamically-injected editors. On the front, rich text is rendered via `front_richtext()` (`public/index.php`) inside `.prose-html` styling (`public/views/layout.blade.php`); plain text is auto-wrapped into paragraphs.
 
@@ -87,10 +99,10 @@ There is **no test suite** and no `npm`/`yarn` — verify by HTTP calls (see Ver
 
 `ConfigurationService` distinguishes two concepts (both live on the same class):
 
-- **System stores** — always re-merged into the running config by `enforceProtectedStores()` and `saveStoresFromJson()` even if removed from `.default_stores`: `users`, `pages`, `modules`, `posts`, `categories`, `redirects`, `leads`.
+- **System stores** — always re-merged into the running config by `enforceProtectedStores()` and `saveStoresFromJson()` even if removed from `.default_stores`: `users`, `pages`, `modules`, `posts`, `categories`, `redirects`, `leads`, `forms`.
 - **Protected stores** (`PROTECTED_STORES = ['users']`) — system stores whose **records cannot be deleted** (`AdminController::handleStoreDelete` redirects; the delete button is hidden in `table.php`). `isProtected()` gates record deletion only.
 
-`modules`, `posts`, `categories`, `redirects`, `leads` are **system stores but NOT protected**: their stores must exist in config, yet records are freely deletable. `redirects` holds SEO redirect rules (source → target, HTTP code, enabled) applied by the front; `leads` holds lead_form submissions (see Pages & modules).
+`modules`, `posts`, `categories`, `redirects`, `leads`, `forms` are **system stores but NOT protected**: their stores must exist in config, yet records are freely deletable. `redirects` holds SEO redirect rules (source → target, HTTP code, enabled) applied by the front; `leads` holds lead_form submissions (see Pages & modules); `forms` holds the form templates referenced by `lead_form` modules.
 
 ## URL scheme
 
@@ -127,14 +139,16 @@ There is **no test suite** and no `npm`/`yarn` — verify by HTTP calls (see Ver
   `title` (text), `type` (select: `hero` | `text` | `store_list` | `html` | `store_item` | `lead_form`), `subtitle` (text), `image` (image), `cta_text` (text), `cta_url` (url), `html` (rich_textarea), `store` (select of available stores), `limit` (number), `item_id` (number), plus `lead_form` config: `fields` (JSON), `notify_to` (text), `notify_cc` (text), `button_text` (text), `success_message` (text).
 - In `form.php` the `modules` store's `select` fields get options: `type` → the six types; `store` → current store names.
 
-### `lead_form` module (contact forms)
-- Adds a contact form to a page. `fields` is a JSON array of field definitions, e.g.
+### `forms` store (form templates) + `lead_form` module
+- A `lead_form` module adds a contact form to a page and **references** a form template from the **`forms`** store via `form_id` (like `store_item` references `item_id`). The module does **not** carry the form's fields/notify config — the form entity does (module fallback fields are in `DEFAULT_MODULES_DEF`).
+- `forms` store fields (`ConfigurationService::DEFAULT_FORMS_DEF`): `title`, `subtitle`, `fields` (`form_fields` builder that edits the field list as add/remove rows; stored as JSON), `notify_to`, `notify_cc`, `button_text`, `success_message`. System store, records freely editable/deletable. It's a "Sistema" store in the sidebar (`src/Views/layout.php` system list).
+- Form config: `fields` is a JSON array of field definitions, e.g.
   ```json
   [{"name":"name","label":"Nombre","type":"text","required":true},{"name":"email","label":"Email","type":"email","required":true}]
   ```
   Supported field types: `text`, `email`, `tel`, `textarea`, `select` (with `options`), `checkbox`. `notify_to` / `notify_cc` are the notification recipients (CC optional). `button_text` / `success_message` customize the UI.
-- Front partial: `public/views/modules/lead_form.blade.php`. It renders a form that POSTs to the current page URL with hidden `lead_submit`, `lead_page`, `lead_index`.
-- POST handling: `front_handle_lead_submit()` (`public/index.php`) finds the page + module instance by `lead_index`, validates required fields, inserts a row into the **`leads`** store (`form`, `name`, `email`, `phone`, `company`, `message`, `page`, `payload` JSON, `created`), and — when dashboard SMTP is configured — emails `notify_to` (CC `notify_cc`, Reply-To = lead email). Success → redirect to `?sent=1`; missing required → redirect to `?error=...`.
+- Front partial: `public/views/modules/lead_form.blade.php`. It resolves the form by `form_id` from the `forms` store (module values are fallback), then renders a form that POSTs to the current page URL with hidden `lead_submit`, `lead_page`, `lead_index`.
+- POST handling: `front_handle_lead_submit()` (`public/index.php`) finds the page + module instance by `lead_index`, resolves the form config from the `forms` store via `form_id` (fallback to the module), validates required fields, inserts a row into the **`leads`** store (`form`, `name`, `email`, `phone`, `company`, `message`, `page`, `payload` JSON, `created`), and — when dashboard SMTP is configured — emails `notify_to` (CC `notify_cc`, Reply-To = lead email). Success → redirect to `?sent=1`; missing required → redirect to `?error=...`.
 - SMTP settings live in `storage/settings.json` (edited from the dashboard "Email notifications" section); `EmailService` (`src/Services/EmailService.php`) is a raw-socket SMTP client (STARTTLS/SSL/AUTH LOGIN). When `smtp_enabled` is off, leads are only stored (no email).
 
 ### `pages.modules` = per-page instances (NOT ids)
@@ -147,8 +161,10 @@ There is **no test suite** and no `npm`/`yarn` — verify by HTTP calls (see Ver
   - `store_list` — `store`, `limit`, `title` (renders store cards, links to `/store`)
   - `html` — `html` (free HTML/iframe)
   - `store_item` — `store`, `item_id`, `title` (featured single record; reads `item_id`, not `id`)
-- Module rendering is Blade: `front_render_module()` delegates to `public/views/modules/<type>.blade.php`, each receiving `module` + `ctx`. The former inline-HTML switch was removed.
+  - `lead_form` — `title`, `form_id` (renders the referenced form from the `forms` store)
+- Module rendering is Blade: `front_render_module()` delegates to `public/views/modules/<type>.blade.php`, each receiving `module` + `ctx`.
 - `public/views/page.blade.php` resolves each `modules` entry: instance objects (arrays) and legacy inline module arrays are passed straight to `front_render_module()`; bare numeric ids are looked up in the `modules` store (backward compat).
+- On first boot, `Bootstrap.php` seeds default module templates (one per supported type: `hero`, `text`, `store_list`, `store_item`, `html`, `lead_form`) into the `modules` store when it's empty — the `lead_form` template references the default contact form seeded in the `forms` store. Existing records are untouched (only seeds when empty).
 - `AdminController::handleStoreUpdate` sanitizes `pages.modules`: keeps instance arrays as-is and converts bare numeric ids to `{"_module_id": N}`. Module images arrive as base64 data URIs (client-side FileReader) — on save they are persisted via `FileManager::uploadDataUri()` (downscaled WebP under `/storage/FY/`) so the front serves a cached file instead of a multi-MB inline blob.
 
 ## SleekDB API gotchas

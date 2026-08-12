@@ -21,6 +21,8 @@ class ConfigurationService
     ];
 
     // Fields of a module template record (the "modules" collection).
+    // A lead_form module references a form template from the "forms" store
+    // via `form_id` (like store_item references `item_id`).
     private const DEFAULT_MODULES_DEF = [
         'title' => 'text',
         'type' => 'select',
@@ -32,12 +34,7 @@ class ConfigurationService
         'store' => 'select',
         'limit' => 'number',
         'item_id' => 'number',
-        // lead_form config
-        'fields' => 'textarea',
-        'notify_to' => 'text',
-        'notify_cc' => 'text',
-        'button_text' => 'text',
-        'success_message' => 'text',
+        'form_id' => 'select',
     ];
 
     // Typical blog post record (the "posts" collection).
@@ -93,6 +90,19 @@ class ConfigurationService
         'page' => 'text',
         'payload' => 'textarea',
         'created' => 'datetime',
+    ];
+
+    // Form templates (the "forms" collection). System store, records are
+    // freely editable/deletable from the CMS. A lead_form module references
+    // one of these templates by _id; submissions are stored in "leads".
+    private const DEFAULT_FORMS_DEF = [
+        'title' => 'text',
+        'subtitle' => 'text',
+        'fields' => 'form_fields',
+        'notify_to' => 'text',
+        'notify_cc' => 'text',
+        'button_text' => 'text',
+        'success_message' => 'text',
     ];
 
     private array $config;
@@ -229,6 +239,7 @@ class ConfigurationService
         $stores['categories'] = $stores['categories'] ?? self::DEFAULT_CATEGORIES_DEF;
         $stores['redirects'] = $stores['redirects'] ?? self::DEFAULT_REDIRECTS_DEF;
         $stores['leads'] = $stores['leads'] ?? self::DEFAULT_LEADS_DEF;
+        $stores['forms'] = $stores['forms'] ?? self::DEFAULT_FORMS_DEF;
         $this->config['stores'] = $stores;
     }
 
@@ -279,6 +290,7 @@ class ConfigurationService
             $stores['categories'] = $stores['categories'] ?? self::DEFAULT_CATEGORIES_DEF;
             $stores['redirects'] = $stores['redirects'] ?? self::DEFAULT_REDIRECTS_DEF;
             $stores['leads'] = $stores['leads'] ?? self::DEFAULT_LEADS_DEF;
+            $stores['forms'] = $stores['forms'] ?? self::DEFAULT_FORMS_DEF;
             $decoded['stores'] = $stores;
         }
 

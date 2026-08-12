@@ -1,12 +1,31 @@
 @php
-    $leadTitle = $module['title'] ?? '';
-    $leadSubtitle = $module['subtitle'] ?? '';
-    $buttonText = $module['button_text'] ?? 'Send';
-    $successMessage = $module['success_message'] ?? 'Thank you! Your message has been sent.';
+    // lead_form modules reference a form template from the "forms" store.
+    // The form's values win; the module instance is a fallback.
+    $formConfig = $module;
+    $formId = (int)($module['form_id'] ?? 0);
+    if ($formId > 0 && isset($ctx['cms'])) {
+        try {
+            $form = $ctx['cms']->getDatabase()->findById('forms', $formId);
+            if (is_array($form)) {
+                foreach (['title', 'subtitle', 'fields', 'notify_to', 'notify_cc', 'button_text', 'success_message'] as $fkey) {
+                    if (isset($form[$fkey]) && trim((string)$form[$fkey]) !== '') {
+                        $formConfig[$fkey] = $form[$fkey];
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // form not found: fall back to the module values
+        }
+    }
+
+    $leadTitle = $formConfig['title'] ?? '';
+    $leadSubtitle = $formConfig['subtitle'] ?? '';
+    $buttonText = $formConfig['button_text'] ?? 'Send';
+    $successMessage = $formConfig['success_message'] ?? 'Thank you! Your message has been sent.';
     $leadPage = $ctx['page'] ?? '';
     $leadIndex = $ctx['module_index'] ?? 0;
 
-    $fieldDefs = is_string($module['fields'] ?? null) ? json_decode($module['fields'], true) : ($module['fields'] ?? []);
+    $fieldDefs = is_string($formConfig['fields'] ?? null) ? json_decode($formConfig['fields'], true) : ($formConfig['fields'] ?? []);
     if (!is_array($fieldDefs)) {
         $fieldDefs = [];
     }

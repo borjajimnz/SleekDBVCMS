@@ -261,7 +261,22 @@ function front_handle_lead_submit(Core $cms, array $stores, array $visiblePages)
     if (!isset($resolved[$index]) || (($resolved[$index]['type'] ?? '') !== 'lead_form')) {
         return;
     }
-    $formConfig = $resolved[$index];
+    $moduleConfig = $resolved[$index];
+
+    // lead_form modules reference a form template from the "forms" store.
+    // The form's fields/notify settings win; the module instance is a fallback.
+    $formConfig = $moduleConfig;
+    $formId = (int)($moduleConfig['form_id'] ?? 0);
+    if ($formId > 0) {
+        $form = $cms->getDatabase()->findById('forms', $formId);
+        if (is_array($form)) {
+            foreach (['title', 'subtitle', 'fields', 'notify_to', 'notify_cc', 'button_text', 'success_message'] as $key) {
+                if (isset($form[$key]) && trim((string)$form[$key]) !== '') {
+                    $formConfig[$key] = $form[$key];
+                }
+            }
+        }
+    }
 
     // Validate required fields against the configured field definitions.
     $fieldDefs = is_string($formConfig['fields'] ?? null) ? json_decode($formConfig['fields'], true) : ($formConfig['fields'] ?? []);

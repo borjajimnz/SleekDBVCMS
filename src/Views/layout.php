@@ -14,7 +14,7 @@ if ($siteName === '') {
 $contentStores = [];
 $systemStores = [];
 foreach ($stores as $name => $def) {
-    if (in_array($name, ['pages', 'modules', 'users', 'roles', 'posts', 'categories', 'redirects', 'leads'], true)) {
+    if (in_array($name, ['pages', 'modules', 'users', 'roles', 'posts', 'categories', 'redirects', 'leads', 'forms'], true)) {
         $systemStores[$name] = $def;
     } else {
         $contentStores[$name] = $def;
@@ -37,10 +37,7 @@ function cms_store_link(string $name, ?string $current): string
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?php print htmlspecialchars($siteName); ?></title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = { darkMode: 'class' };
-    </script>
+    <link href="/dist/tailwind.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
     <script>

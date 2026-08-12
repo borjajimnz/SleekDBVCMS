@@ -18,6 +18,7 @@ use SleekDBVCMS\Forms\Types\DecimalType;
 use SleekDBVCMS\Forms\Types\DateType;
 use SleekDBVCMS\Forms\Types\DatetimeType;
 use SleekDBVCMS\Forms\Types\ModulesType;
+use SleekDBVCMS\Forms\Types\FormFieldsType;
 
 class FormBuilder
 {
@@ -63,6 +64,7 @@ class FormBuilder
             'date' => new DateType(),
             'datetime' => new DatetimeType(),
             'modules' => new ModulesType(),
+            'form_fields' => new FormFieldsType(),
         ];
     }
 

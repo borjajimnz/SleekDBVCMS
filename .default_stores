@@ -124,7 +124,12 @@
       "store":"select",
       "limit":"number",
       "item_id":"number",
-      "fields":"textarea",
+      "form_id":"select"
+   },
+   "forms":{
+      "title":"text",
+      "subtitle":"text",
+      "fields":"form_fields",
       "notify_to":"text",
       "notify_cc":"text",
       "button_text":"text",
