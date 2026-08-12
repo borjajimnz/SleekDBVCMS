@@ -16,7 +16,7 @@ class SleekDBManager implements DatabaseInterface
         $this->options = $options;
     }
 
-    public function store(string $storeName)
+    public function store(string $storeName): Store
     {
         return new Store($storeName, $this->storePath, $this->options);
     }
@@ -26,17 +26,27 @@ class SleekDBManager implements DatabaseInterface
         return $this->store($storeName)->findById($id);
     }
 
-    public function insert(string $storeName, array $data)
+    public function findAll(string $storeName, array $orderBy = null, int $limit = null, int $offset = null): array
+    {
+        return $this->store($storeName)->findAll($orderBy, $limit, $offset);
+    }
+
+    public function findOneBy(string $storeName, array $criteria)
+    {
+        return $this->store($storeName)->findOneBy($criteria);
+    }
+
+    public function insert(string $storeName, array $data): array
     {
         return $this->store($storeName)->insert($data);
     }
 
-    public function update(string $storeName, array $data)
+    public function update(string $storeName, array $data): bool
     {
         return $this->store($storeName)->update($data);
     }
 
-    public function delete(string $storeName, int $id)
+    public function delete(string $storeName, int $id): bool
     {
         return $this->store($storeName)->deleteById($id);
     }

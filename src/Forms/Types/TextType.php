@@ -2,7 +2,7 @@
 
 namespace SleekDBVCMS\Forms\Types;
 
-use SleekDBVCMS\Forms\AbstractType;
+use SleekDBVCMS\Forms\Types\AbstractType;
 
 class TextType extends AbstractType
 {

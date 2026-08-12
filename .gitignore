@@ -3,4 +3,6 @@
 composer.lock
 /storage/public
 !/storage/public/readme.txt
+/storage/logs
+/backups
 

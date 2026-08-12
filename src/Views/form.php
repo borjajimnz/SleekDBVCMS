@@ -1,50 +1,66 @@
 <?php
-use SleekDBVCMS\Forms\FormBuilder;
-
 /** @var \SleekDBVCMS\Core $core */
-/** @var string $store */
+/** @var string $table */
 /** @var array $fields */
 /** @var array $data */
 /** @var string $action */
-/** @var array $errors */
 /** @var array $joinData */
 
-$formBuilder = new FormBuilder($data ?? [], $errors ?? []);
+$isView = $action === 'view_row';
 ?>
+<div class="max-w-2xl">
+    <div class="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800">
+        <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-800">
+            <h2 class="font-semibold capitalize"><?php $core->_('Create'); ?> <?php print htmlspecialchars($table); ?></h2>
+        </div>
+        <div class="p-5">
+            <form method="post" enctype="multipart/form-data" class="space-y-4">
+                <?php if ($action === 'update_row') { ?>
+                    <input type="hidden" name="id" value="<?php print htmlspecialchars((string)($data['_id'] ?? '')); ?>">
+                <?php } ?>
 
-<div class="container mt-4">
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header">
-                    <h3><?= $action === 'create' ? 'Create' : 'Edit' ?> <?= ucfirst($store) ?></h3>
-                </div>
-                <div class="card-body">
-                    <?= $formBuilder->start("index.php?store={$store}&action=" . ($action === 'create' ? 'create' : 'update'), 'POST') ?>
-                    
-                    <?php if (isset($data['_id'])): ?>
-                        <input type="hidden" name="_id" value="<?= $data['_id'] ?>">
-                    <?php endif; ?>
-
-                    <?php foreach ($fields as $field => $type): ?>
-                        <?php
-                        $attributes = [];
-                        if (isset($type['join'])) {
-                            $attributes['options'] = $joinData[$field] ?? [];
-                            $type = 'select';
+                <?php
+                $fb = $core->getFormBuilder()->withData($data);
+                foreach ($fields as $name => $value) {
+                    if (is_array($value) && isset($value['join'])) {
+                        $options = [];
+                        foreach ($joinData[$name] ?? [] as $option) {
+                            $display = '';
+                            foreach ($value['join']['foreing_display'] as $dfield) {
+                                $display .= $option[$dfield] ?? '';
+                            }
+                            $options[$option['_id']] = trim($display);
                         }
-                        echo $formBuilder->field($field, $type, $attributes);
-                        ?>
-                    <?php endforeach; ?>
+                        print $fb->field($name, 'select', [
+                            'options' => $options,
+                            'disabled' => $isView,
+                            'label' => $name,
+                        ]);
+                    } elseif ($isView) {
+                        print $fb->field($name, (string)$value, [
+                            'disabled' => true,
+                            'label' => $name,
+                        ]);
+                    } else {
+                        print $fb->field($name, (string)$value, ['label' => $name]);
+                    }
+                }
+                ?>
 
-                    <div class="form-group">
-                        <button type="submit" class="btn btn-primary">Save</button>
-                        <a href="index.php?store=<?= $store ?>&action=list" class="btn btn-secondary">Cancel</a>
-                    </div>
-
-                    <?= $formBuilder->end() ?>
+                <div class="pt-2 flex flex-col sm:flex-row gap-3">
+                    <?php if (!$isView) { ?>
+                        <button name="<?php print htmlspecialchars($action); ?>"
+                                class="flex items-center justify-center gap-1.5 px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
+                            <?php $core->_($action); ?>
+                        </button>
+                    <?php } ?>
+                    <a href="index.php?p=<?php print urlencode($table); ?>"
+                       class="inline-flex items-center justify-center px-5 py-2 rounded-lg border border-gray-300 dark:border-gray-700 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-800">
+                        <?php $core->_('cancel'); ?>
+                    </a>
                 </div>
-            </div>
+            </form>
         </div>
     </div>
 </div>

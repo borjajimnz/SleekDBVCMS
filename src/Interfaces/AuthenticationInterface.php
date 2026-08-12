@@ -8,4 +8,6 @@ interface AuthenticationInterface
     public function logout(): void;
     public function isLoggedIn(): bool;
     public function getCurrentUser(): ?array;
+    public function setLanguage(string $language): void;
+    public function getLanguage(): string;
 }

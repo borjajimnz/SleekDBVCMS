@@ -117,5 +117,16 @@
       "type":"text",
       "size":"number",
       "uploaded":"datetime"
+   },
+   "pages":{
+      "title":"text",
+      "slug":"text",
+      "published":"checkbox",
+      "show_in_menu":"checkbox",
+      "menu_order":"number",
+      "is_home":"checkbox",
+      "seo_title":"text",
+      "seo_description":"textarea",
+      "modules":"modules"
    }
 }                                  

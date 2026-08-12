@@ -11,6 +11,13 @@ use SleekDBVCMS\Forms\Types\ColorType;
 use SleekDBVCMS\Forms\Types\UrlType;
 use SleekDBVCMS\Forms\Types\FileType;
 use SleekDBVCMS\Forms\Types\SelectType;
+use SleekDBVCMS\Forms\Types\ImageType;
+use SleekDBVCMS\Forms\Types\PasswordType;
+use SleekDBVCMS\Forms\Types\CheckboxType;
+use SleekDBVCMS\Forms\Types\DecimalType;
+use SleekDBVCMS\Forms\Types\DateType;
+use SleekDBVCMS\Forms\Types\DatetimeType;
+use SleekDBVCMS\Forms\Types\ModulesType;
 
 class FormBuilder
 {
@@ -25,6 +32,18 @@ class FormBuilder
         $this->registerDefaultTypes();
     }
 
+    public function withData(array $data): self
+    {
+        $this->data = $data;
+        return $this;
+    }
+
+    public function withErrors(array $errors): self
+    {
+        $this->errors = $errors;
+        return $this;
+    }
+
     private function registerDefaultTypes(): void
     {
         $this->types = [
@@ -37,6 +56,13 @@ class FormBuilder
             'url' => new UrlType(),
             'file' => new FileType(),
             'select' => new SelectType(),
+            'image' => new ImageType(),
+            'password' => new PasswordType(),
+            'checkbox' => new CheckboxType(),
+            'decimal' => new DecimalType(),
+            'date' => new DateType(),
+            'datetime' => new DatetimeType(),
+            'modules' => new ModulesType(),
         ];
     }
 
@@ -69,12 +95,12 @@ class FormBuilder
 
         $inputType = $this->types[$type] ?? $this->types['text'];
         
-        $html = sprintf('<div class="form-group%s">', $error ? ' has-error' : '');
-        $html .= sprintf('<label for="%s">%s</label>', $name, $label);
+        $html = sprintf('<div class="space-y-1.5%s">', $error ? '' : '');
+        $html .= sprintf('<label for="%s" class="block text-sm font-medium text-gray-700 dark:text-gray-300">%s</label>', $name, $label);
         $html .= $inputType->render($name, $value, $attributes);
         
         if ($error) {
-            $html .= sprintf('<span class="help-block">%s</span>', $error);
+            $html .= sprintf('<p class="text-sm text-red-600 dark:text-red-400">%s</p>', $error);
         }
         
         $html .= '</div>';

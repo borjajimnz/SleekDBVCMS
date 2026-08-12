@@ -18,6 +18,7 @@ class Core
     var $store_path;
     var $storage_path;
     var $root_path;
+    var $log_file;
 
     /*
         DEFAULT STORES TO MAKE THE CMS WORK PROPERLY
@@ -36,6 +37,9 @@ class Core
 
     function __construct($config)
     {
+        // Ensure new directories created by SleekDB are world-writable (0777)
+        umask(0);
+
         $this->config = $config;
 
         // Initializating the language
@@ -52,8 +56,64 @@ class Core
         // Merge the default CMS stores and the user stores
         $this->config['stores'] = $this->config['stores'] + $this->default_stores;
 
+        // Set up the log file
+        $this->initLog();
+
+        // Ensure the storage directory is writable by the web server
+        $this->fixPermissions();
+
+        // Register the exception handler so errors are logged instead of fatal
+        set_exception_handler([$this, 'logException']);
+        set_error_handler([$this, 'logError']);
+
         // Initializating the database stuff
         $this->database();
+    }
+
+    // Initialize the log file
+    function initLog()
+    {
+        $logDir = __DIR__ . '/storage/logs';
+        if (!is_dir($logDir)) {
+            @mkdir($logDir, 0777, true);
+        }
+        $this->log_file = $logDir . '/cms.log';
+    }
+
+    // Write a message to the log file
+    function log($message)
+    {
+        if (!$this->log_file) return;
+        @file_put_contents($this->log_file, '[' . date('Y-m-d H:i:s') . '] ' . $message . PHP_EOL, FILE_APPEND | LOCK_EX);
+    }
+
+    // Log uncaught exceptions to the log file and rethrow
+    function logException($exception)
+    {
+        $this->log('FATAL ' . get_class($exception) . ': ' . $exception->getMessage() . ' in ' . $exception->getFile() . ':' . $exception->getLine() . PHP_EOL . $exception->getTraceAsString());
+        return false;
+    }
+
+    // Log PHP warnings/errors (return false so PHP keeps its own handling)
+    function logError($severity, $message, $file, $line)
+    {
+        if ($severity === E_DEPRECATED || $severity === E_USER_DEPRECATED) return false;
+        if (error_reporting() === 0) return false;
+        $this->log('ERROR: ' . $message . ' in ' . $file . ':' . $line);
+        return false;
+    }
+
+    // Ensure storage directories are writable by the web server process
+    function fixPermissions()
+    {
+        $base = __DIR__ . '/storage';
+        $it = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($base, RecursiveDirectoryIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::SELF_FIRST
+        );
+        foreach ($it as $file) {
+            @chmod($file->getPathname(), 0777);
+        }
     }
 
     // Initcialize languages

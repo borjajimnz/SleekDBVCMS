@@ -43,4 +43,14 @@ class AuthenticationService implements AuthenticationInterface
     {
         return $this->sessionData['logged'] ?? null;
     }
+
+    public function setLanguage(string $language): void
+    {
+        $this->sessionData['language'] = $language;
+    }
+
+    public function getLanguage(): string
+    {
+        return $this->sessionData['language'] ?? 'en';
+    }
 }
