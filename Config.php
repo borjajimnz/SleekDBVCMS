@@ -24,6 +24,8 @@ $config = [
     ],
     'options' => [
         'auto_cache' => false,
-        'timeout' => 121
+        'timeout' => 121,
+        'image_max_side' => 1920,
+        'image_quality' => 80,
     ],
 ];

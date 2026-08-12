@@ -7,12 +7,16 @@ class FileManager
     private string $rootPath;
     private string $publicPath;
     private array $allowedExtensions;
+    private int $imageMaxSide;
+    private int $imageQuality;
 
-    public function __construct(string $rootPath, string $publicPath, array $allowedExtensions)
+    public function __construct(string $rootPath, string $publicPath, array $allowedExtensions, int $imageMaxSide = 1920, int $imageQuality = 80)
     {
         $this->rootPath = $rootPath;
         $this->publicPath = $publicPath;
         $this->allowedExtensions = $allowedExtensions;
+        $this->imageMaxSide = $imageMaxSide;
+        $this->imageQuality = $imageQuality;
     }
 
     public function getExtension(string $mimeType): ?string
@@ -47,6 +51,13 @@ class FileManager
             return null;
         }
 
+        // Optimize raster images: downscale + convert to WebP.
+        $optimized = $this->optimizeImage($fullPath, $file[$fieldName]['type']);
+        if ($optimized !== null) {
+            $fullPath = $optimized;
+            $fileName = basename($optimized);
+        }
+
         // If storage is not a symlink in public, mirror the file there.
         $publicStorage = $this->publicPath . '/storage';
         if (!is_link($publicStorage) && !is_dir($publicStorage)) {
@@ -59,6 +70,69 @@ class FileManager
 
         // Public URL for the uploaded file.
         return '/storage/' . date('FY') . '/' . $fileName;
+    }
+
+    /**
+     * Downscale raster images larger than imageMaxSide and convert them to
+     * WebP. Returns the new path when processed, null when the file is left
+     * as-is (not a supported image or conversion failed).
+     */
+    private function optimizeImage(string $fullPath, string $mime): ?string
+    {
+        $loaders = [
+            'image/jpeg' => 'imagecreatefromjpeg',
+            'image/png' => 'imagecreatefrompng',
+            'image/gif' => 'imagecreatefromgif',
+            'image/webp' => 'imagecreatefromwebp',
+        ];
+        if (!isset($loaders[$mime]) || !function_exists('imagewebp')) {
+            return null;
+        }
+
+        $src = @$loaders[$mime]($fullPath);
+        if (!$src) {
+            return null;
+        }
+
+        // Apply EXIF orientation (phone photos) before resizing.
+        if ($mime === 'image/jpeg' && function_exists('exif_read_data')) {
+            $orientation = @exif_read_data($fullPath)['Orientation'] ?? 0;
+            if (in_array($orientation, [3, 6, 8], true)) {
+                $angle = [3 => 180, 6 => 90, 8 => -90][$orientation];
+                $rotated = imagerotate($src, $angle, 0);
+                if ($rotated) {
+                    imagedestroy($src);
+                    $src = $rotated;
+                }
+            }
+        }
+
+        // Downscale when the longest side exceeds the configured maximum.
+        $srcW = imagesx($src);
+        $srcH = imagesy($src);
+        $scale = min(1, $this->imageMaxSide / max($srcW, $srcH));
+        if ($scale < 1) {
+            $dstW = (int)round($srcW * $scale);
+            $dstH = (int)round($srcH * $scale);
+            $dst = imagecreatetruecolor($dstW, $dstH);
+            imagealphablending($dst, false);
+            imagesavealpha($dst, true);
+            imagecopyresampled($dst, $src, 0, 0, 0, 0, $dstW, $dstH, $srcW, $srcH);
+            imagedestroy($src);
+            $src = $dst;
+        }
+
+        $dir = dirname($fullPath);
+        $webpFull = $dir . '/' . pathinfo($fullPath, PATHINFO_FILENAME) . '.webp';
+        $ok = imagewebp($src, $webpFull, $this->imageQuality);
+        imagedestroy($src);
+
+        if (!$ok) {
+            return null;
+        }
+
+        @unlink($fullPath);
+        return $webpFull;
     }
 
     public function deleteFile(string $path): bool

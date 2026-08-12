@@ -63,7 +63,13 @@ $logger->registerHandlers();
 $database = new SleekDBManager($curDir . '/storage/stores', $config['options'] ?? []);
 $auth = new AuthenticationService($database);
 $configuration = new ConfigurationService($config, $curDir . '/.default_stores');
-$fileManager = new FileManager($curDir, $config['public_path'], $config['upload_files_extensions_allowed'] ?? []);
+$fileManager = new FileManager(
+    $curDir,
+    $config['public_path'],
+    $config['upload_files_extensions_allowed'] ?? [],
+    (int)($config['options']['image_max_side'] ?? 1920),
+    (int)($config['options']['image_quality'] ?? 80)
+);
 $formBuilder = new FormBuilder();
 
 $cms = new Core(
