@@ -231,7 +231,7 @@ function front_render_module(array $module, array $ctx): string
 
         case 'store_item':
             $store = $module['store'] ?? null;
-            $id = (int)($module['id'] ?? 0);
+            $id = (int)($module['item_id'] ?? $module['id'] ?? 0);
             $title = $module['title'] ?? '';
             $stores = $ctx['stores'];
             $cms = $ctx['cms'];

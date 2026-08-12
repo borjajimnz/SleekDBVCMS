@@ -29,7 +29,7 @@ tail -f /var/www/SleekDBVCMS/storage/logs/cms.log # app error log (most useful)
 sudo tail -f /var/log/fpm-php.www.log             # PHP-FPM stderr/catch log
 ```
 
-There is **no test suite** and no `npm`/`yarn` — verify by HTTP calls (see Verify).
+There is **no test suite** and no `npm`/`yarn` — verify by HTTP calls (see Verify). The admin UI's `ModulesType` ships inline vanilla JS; validate it with `node --check`.
 
 ## Architecture (DI container, consolidated)
 
@@ -41,10 +41,10 @@ There is **no test suite** and no `npm`/`yarn` — verify by HTTP calls (see Ver
 - `src/Services/`
   - `SleekDBManager` — `DatabaseInterface` impl; wraps `SleekDB\Store`.
   - `AuthenticationService` — login/logout/session (`$_SESSION['logged']`), `setLanguage`.
-  - `ConfigurationService` — loads `Config.php` + `.default_stores` JSON; `getStores()`, `saveStoresFromJson()`.
+  - `ConfigurationService` — loads `Config.php` + `.default_stores` JSON; enforces system stores; `getStores()`, `saveStoresFromJson()`.
   - `FileManager` — uploads to `storage/public/FY/`, returns `/storage/FY/file`.
   - `Logger` — writes `storage/logs/cms.log`; registers exception/error handlers.
-- `src/Controllers/AdminController.php` — all admin routes/actions.
+- `src/Controllers/AdminController.php` — all admin routes/actions; sanitizes `pages.modules` on save.
 - `src/Forms/FormBuilder.php` + `src/Forms/Types/*` — input rendering per field type.
 - `src/Views/{layout,login,dashboard,table,form}.php` — server-rendered templates.
 - `src/Interfaces/` — `DatabaseInterface`, `AuthenticationInterface`.
@@ -64,8 +64,17 @@ There is **no test suite** and no `npm`/`yarn` — verify by HTTP calls (see Ver
     }
   }
   ```
-- Field types: `text`, `textarea`, `rich_textarea`, `password`, `image`, `color`, `url`, `number`, `decimal`, `email`, `datetime`, `date`, `checkbox`, `select`, and `join` blocks.
+- Field types: `text`, `textarea`, `rich_textarea`, `password`, `image`, `color`, `url`, `number`, `decimal`, `email`, `datetime`, `date`, `checkbox`, `select`, `modules`, and `join` blocks.
 - Editable at runtime from the dashboard (writes `.default_stores`).
+
+## Store protection model
+
+`ConfigurationService` distinguishes two concepts (both live on the same class):
+
+- **System stores** — always re-merged into the running config by `enforceProtectedStores()` and `saveStoresFromJson()` even if removed from `.default_stores`: `users`, `pages`, `modules`.
+- **Protected stores** (`PROTECTED_STORES = ['users', 'pages']`) — system stores whose **records cannot be deleted** (`AdminController::handleStoreDelete` redirects; the delete button is hidden in `table.php`). `isProtected()` gates record deletion only.
+
+`modules` is a **system store but NOT protected**: its store must exist in config, yet module records are freely deletable.
 
 ## URL scheme
 
@@ -82,24 +91,35 @@ There is **no test suite** and no `npm`/`yarn` — verify by HTTP calls (see Ver
 
 **Public front** (`/`):
 - `GET /` — home = the page marked `is_home` in the `pages` store
-- `GET /?page=<slug>` — a page from the protected `pages` store
+- `GET /?page=<slug>` — a page from the `pages` store
 - `GET /?page=<slug>&preview=1` — preview an unpublished page (needs admin session)
 - `GET /?store=<name>` — listing of a store (used by `store_list` modules; joins resolved, images shown)
 - `GET /?store=<name>&id=N` — detail page
 - Only stores listed in `public/config.php` `menu` are reachable (users/roles excluded by default).
 
-### Pages & modules (protected collection)
+## Pages & modules (template collection + per-page instances)
 
-- `pages` is a **protected store** (`ConfigurationService::PROTECTED_STORES`): it cannot be removed from `.default_stores` (enforced in `saveStoresFromJson` + `enforceProtectedStores`) and its records cannot be deleted (`AdminController::handleStoreDelete` redirects).
-- Fields: `title`, `slug` (auto-generated from title when left empty), `published` (checkbox), `show_in_menu`, `menu_order`, `is_home`, `seo_title`, `seo_description`, `modules` (JSON array).
-- `modules` is a custom form type (`src/Forms/Types/ModulesType.php`) that edits a JSON array. Each module: `type` + fields. Supported types (rendered by `front_render_module()` in `public/index.php`):
+### `pages` store
+- System + protected store. Fields: `title`, `slug` (auto-generated from title when left empty), `published` (checkbox), `show_in_menu`, `menu_order`, `is_home`, `seo_title`, `seo_description`, `modules`.
+- `modules` is a custom form type (`src/Forms/Types/ModulesType.php`). Nav is generated from `pages` where `show_in_menu=1`, ordered by `menu_order`. Front routes pages by slug; drafts are 404 unless `?preview=1` with an admin session.
+
+### `modules` store (templates)
+- A normal collection (system store, records deletable) where each record is a **module template**. Fields (`ConfigurationService::DEFAULT_MODULES_DEF`):
+  `title` (text), `type` (select: `hero` | `text` | `store_list` | `html` | `store_item`), `subtitle` (text), `image` (image), `cta_text` (text), `cta_url` (url), `html` (rich_textarea), `store` (select of available stores), `limit` (number), `item_id` (number).
+- In `form.php` the `modules` store's `select` fields get options: `type` → the five types; `store` → current store names.
+
+### `pages.modules` = per-page instances (NOT ids)
+- When a template is added to a page, the builder **copies its values** into the page. `pages.modules` stores a JSON array of **instance objects**, each `{"_module_id":<template id>, "type":"...", ...field values}`.
+- Editing an instance's values affects **only that page** — the template in the `modules` store is never modified.
+- The builder (vanilla JS in `ModulesType.php`): dropdown + "Add" clones a template into the page list; a pencil button opens an inline editor showing only the fields relevant to the instance `type`; arrows reorder; ✕ removes; a hidden input `modules-hidden` holds the JSON and is what gets POSTed.
+- Supported types (rendered by `front_render_module()` in `public/index.php`):
   - `hero` — `title`, `subtitle`, `image`, `cta_text`, `cta_url`
   - `text` — `html` (rich HTML)
   - `store_list` — `store`, `limit`, `title` (renders store cards, links to `/?store=`)
   - `html` — `html` (free HTML/iframe)
-  - `store_item` — `store`, `id`, `title` (featured single record)
-- Nav is generated from `pages` where `show_in_menu=1`, ordered by `menu_order` (see `navPages` in `public/index.php` and `public/views/layout.php`).
-- Front routes pages by slug; drafts are 404 unless `?preview=1` with an admin session.
+  - `store_item` — `store`, `item_id`, `title` (featured single record; reads `item_id`, not `id`)
+- `public/views/page.php` resolves each `modules` entry: instance objects (arrays) and legacy inline module arrays are passed straight to `front_render_module()`; bare numeric ids are looked up in the `modules` store (backward compat).
+- `AdminController::handleStoreUpdate` sanitizes `pages.modules`: keeps instance arrays as-is and converts bare numeric ids to `{"_module_id": N}`.
 
 ## SleekDB API gotchas
 
@@ -134,6 +154,8 @@ curl -sk -c c.txt -o /dev/null -w "cms login page: %{http_code}\n" https://127.0
 curl -sk -c c.txt -o /dev/null -w "cms login: %{http_code}\n" -X POST -d "username=admin&password=password&login=1" https://127.0.0.1/cms/ -H "Host: cms.almiapps.com"
 curl -sk -b c.txt -o /dev/null -w "cms dashboard: %{http_code}\n" https://127.0.0.1/cms/index.php -H "Host: cms.almiapps.com"
 curl -sk -b c.txt -o /dev/null -w "cms posts: %{http_code}\n" "https://127.0.0.1/cms/index.php?p=posts" -H "Host: cms.almiapps.com"
+curl -sk -b c.txt -o /dev/null -w "cms modules: %{http_code}\n" "https://127.0.0.1/cms/index.php?p=modules" -H "Host: cms.almiapps.com"
+curl -sk -b c.txt -o /dev/null -w "cms pages: %{http_code}\n" "https://127.0.0.1/cms/index.php?p=pages" -H "Host: cms.almiapps.com"
 ```
 
 All should be 200/302. `-k` because the cert is for the real domain. Expect **200** for GETs and **302** for POST mutations (redirect).

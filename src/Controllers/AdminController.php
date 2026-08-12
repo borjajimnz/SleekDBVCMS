@@ -148,6 +148,25 @@ class AdminController
             $update['slug'] = $this->slugify($source);
         }
 
+        // Pages store per-page module instances; keep them, convert bare ids.
+        if ($table === 'pages' && array_key_exists('modules', $update)) {
+            $decoded = json_decode((string)$update['modules'], true);
+            $instances = [];
+            if (is_array($decoded)) {
+                foreach ($decoded as $entry) {
+                    if (is_array($entry)) {
+                        $instances[] = $entry;
+                    } elseif (is_numeric($entry)) {
+                        $id = (int)$entry;
+                        if ($id > 0) {
+                            $instances[] = ['_module_id' => $id];
+                        }
+                    }
+                }
+            }
+            $update['modules'] = json_encode($instances);
+        }
+
         if ($action === 'update_row' && isset($data['id']) && !empty($data['id'])) {
             $update['_id'] = (int)$data['id'];
             $this->core->getDatabase()->update($table, $update);

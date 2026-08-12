@@ -36,14 +36,48 @@ $isView = $action === 'view_row';
                             'disabled' => $isView,
                             'label' => $name,
                         ]);
-                    } elseif ($isView) {
-                        print $fb->field($name, (string)$value, [
-                            'disabled' => true,
-                            'label' => $name,
-                        ]);
-                    } else {
-                        print $fb->field($name, (string)$value, ['label' => $name]);
+                        continue;
                     }
+
+                    $fieldType = (string)$value;
+                    $fieldOptions = null;
+                    $fieldStores = null;
+
+                    if ($fieldType === 'modules') {
+                        try {
+                            $fieldOptions = $core->getDatabase()->findAll('modules', ['_id' => 'desc']);
+                        } catch (\Throwable $e) {
+                            $fieldOptions = [];
+                        }
+                        $fieldStores = array_keys($core->getConfig()->getStores());
+                    } elseif ($fieldType === 'select' && $table === 'modules') {
+                        if ($name === 'type') {
+                            $fieldOptions = [
+                                'hero' => 'Hero',
+                                'text' => 'Text',
+                                'store_list' => 'Store list',
+                                'html' => 'HTML',
+                                'store_item' => 'Store item',
+                            ];
+                        } elseif ($name === 'store') {
+                            $fieldOptions = [];
+                            foreach ($core->getConfig()->getStores() as $storeName => $storeDef) {
+                                $fieldOptions[$storeName] = $storeName;
+                            }
+                        }
+                    }
+
+                    $attrs = ['label' => $name];
+                    if ($fieldOptions !== null) {
+                        $attrs['options'] = $fieldOptions;
+                    }
+                    if (isset($fieldStores) && $fieldType === 'modules') {
+                        $attrs['stores'] = $fieldStores;
+                    }
+                    if ($isView) {
+                        $attrs['disabled'] = true;
+                    }
+                    print $fb->field($name, $fieldType, $attrs);
                 }
                 ?>
 

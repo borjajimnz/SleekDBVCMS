@@ -4,20 +4,271 @@ namespace SleekDBVCMS\Forms\Types;
 
 class ModulesType extends AbstractType
 {
+    // All fields a module instance can carry (matches the "modules" collection).
+    private function moduleFields(): array
+    {
+        return ['title', 'type', 'subtitle', 'image', 'cta_text', 'cta_url', 'html', 'store', 'limit', 'item_id'];
+    }
+
     public function render(string $name, $value = null, array $attributes = []): string
     {
-        $decoded = is_string($value) ? json_decode($value, true) : $value;
-        $value = $decoded !== null ? json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) : $value;
+        $disabled = !empty($attributes['disabled']);
+        $allModules = $attributes['options'] ?? [];
+        $storeOptions = $attributes['stores'] ?? [];
+        unset($attributes['options'], $attributes['stores']);
 
-        $attributes = array_merge([
-            'name' => $name,
-            'id' => $name,
-            'class' => 'w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 font-mono text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed',
-            'rows' => '14',
-            'spellcheck' => 'false',
-        ], $attributes);
+        // Build the pool of templates (from the "modules" collection).
+        $pool = [];
+        foreach ($allModules as $module) {
+            $id = (int)($module['_id'] ?? 0);
+            if ($id <= 0) {
+                continue;
+            }
+            $label = trim((string)($module['title'] ?? ''));
+            $fields = [];
+            foreach ($this->moduleFields() as $field) {
+                $fields[$field] = $module[$field] ?? '';
+            }
+            $pool[$id] = [
+                'label' => $label !== '' ? $label : 'Module #' . $id,
+                'type' => (string)($module['type'] ?? ''),
+                'fields' => $fields,
+            ];
+        }
 
-        return '<textarea ' . $this->buildAttributes($attributes) . '>' . htmlspecialchars((string)($value ?? '')) . '</textarea>'
-            . '<small class="block mt-1 text-xs text-gray-500 dark:text-gray-400">JSON array of modules. Order = display order. Types: hero, text, store_list, html, store_item.</small>';
+        // Normalize the stored value into per-page instances.
+        $raw = is_string($value) ? json_decode($value, true) : $value;
+        if (!is_array($raw)) {
+            $raw = [];
+        }
+        $instances = [];
+        foreach ($raw as $entry) {
+            if (is_array($entry)) {
+                $instances[] = $entry;
+            } elseif (is_numeric($entry)) {
+                $id = (int)$entry;
+                if (isset($pool[$id])) {
+                    $inst = $pool[$id]['fields'];
+                    $inst['_module_id'] = $id;
+                    $instances[] = $inst;
+                }
+            }
+        }
+
+        $html = '<div class="modules-builder space-y-3"'
+            . ' data-modules="' . htmlspecialchars(json_encode($pool)) . '"'
+            . ' data-stores="' . htmlspecialchars(json_encode(array_values($storeOptions))) . '"'
+            . ' data-disabled="' . ($disabled ? '1' : '0') . '">';
+
+        $html .= '<input type="hidden" name="' . htmlspecialchars($name) . '" class="modules-hidden" value="' . htmlspecialchars(json_encode($instances)) . '">';
+
+        $html .= '<div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">';
+        $html .= '<div class="modules-empty px-4 py-6 text-center text-xs text-gray-500 dark:text-gray-400">No modules selected.</div>';
+        $html .= '<ul class="modules-list divide-y divide-gray-200 dark:divide-gray-700"></ul>';
+        $html .= '</div>';
+
+        $html .= '<div class="modules-editor rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden bg-white dark:bg-gray-800" style="display:none"></div>';
+
+        if (!$disabled) {
+            $html .= '<div class="modules-add flex gap-2">';
+            $html .= '<select class="modules-select flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">';
+            $html .= '<option value="">-- Add module --</option>';
+            foreach ($pool as $id => $module) {
+                $type = $module['type'] !== '' ? ' (' . htmlspecialchars($module['type']) . ')' : '';
+                $html .= '<option value="' . $id . '">' . htmlspecialchars($module['label']) . $type . '</option>';
+            }
+            $html .= '</select>';
+            $html .= '<button type="button" class="modules-add-btn px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors">Add</button>';
+            $html .= '</div>';
+        }
+
+        $html .= '<script>' . $this->builderScript() . '</script>';
+        $html .= '<small class="block text-xs text-gray-500 dark:text-gray-400">Adding a module copies its values into this page. Use the pencil to edit its values for this page only (other pages are not affected).</small>';
+        $html .= '</div>';
+
+        return $html;
+    }
+
+    private function builderScript(): string
+    {
+        return <<<'JS'
+(function () {
+    if (window.__modulesBuilderBound) { return; }
+    window.__modulesBuilderBound = true;
+    document.querySelectorAll('.modules-builder').forEach(function (builder) {
+        var hidden = builder.querySelector('.modules-hidden');
+        var list = builder.querySelector('.modules-list');
+        var empty = builder.querySelector('.modules-empty');
+        var editor = builder.querySelector('.modules-editor');
+        var addBtn = builder.querySelector('.modules-add-btn');
+        var addSelect = builder.querySelector('.modules-select');
+        var disabled = builder.getAttribute('data-disabled') === '1';
+
+        var pool = {};
+        try { pool = JSON.parse(builder.getAttribute('data-modules') || '{}'); } catch (e) {}
+        var stores = [];
+        try { stores = JSON.parse(builder.getAttribute('data-stores') || '[]'); } catch (e) {}
+
+        var TYPE_FIELDS = {
+            hero: ['title', 'subtitle', 'image', 'cta_text', 'cta_url'],
+            text: ['html'],
+            html: ['html'],
+            store_list: ['title', 'store', 'limit'],
+            store_item: ['title', 'store', 'item_id']
+        };
+
+        var state = [];
+        try { state = JSON.parse(hidden.value || '[]'); } catch (e) {}
+        if (!Array.isArray(state)) { state = []; }
+
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        }
+
+        function syncHidden() { hidden.value = JSON.stringify(state); }
+
+        function labelOf(inst) {
+            if (inst.title) { return inst.title; }
+            var m = pool[String(inst._module_id)];
+            if (m && m.label) { return m.label; }
+            return 'Module #' + (inst._module_id || '');
+        }
+
+        function rowHtml(inst, i) {
+            var m = pool[String(inst._module_id)] || {};
+            var type = inst.type || m.type || '';
+            var badge = type ? '<span class="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-[10px] uppercase tracking-wide">' + esc(type) + '</span>' : '';
+            var ctrl = '';
+            if (!disabled) {
+                ctrl = '<div class="flex items-center gap-1 ml-3">'
+                    + '<button type="button" data-act="edit" data-idx="' + i + '" title="Edit values" class="module-btn p-1 rounded text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/50"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>'
+                    + '<button type="button" data-act="up" data-idx="' + i + '" title="Move up" class="module-btn p-1 rounded text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg></button>'
+                    + '<button type="button" data-act="down" data-idx="' + i + '" title="Move down" class="module-btn p-1 rounded text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>'
+                    + '<button type="button" data-act="remove" data-idx="' + i + '" title="Remove" class="module-btn p-1 rounded text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>'
+                    + '</div>';
+            }
+            return '<li class="module-item flex items-center px-4 py-2.5" data-idx="' + i + '">'
+                + '<span class="grip text-gray-400 mr-3 cursor-grab">⋮⋮</span>'
+                + '<div class="flex-1 min-w-0"><div class="text-sm font-medium truncate">' + esc(labelOf(inst)) + '</div>'
+                + '<div class="text-[10px] text-gray-400">' + (inst._module_id ? ('#' + inst._module_id) : '') + '</div></div>'
+                + badge
+                + ctrl
+                + '</li>';
+        }
+
+        function render() {
+            var html = '';
+            state.forEach(function (inst, i) { html += rowHtml(inst, i); });
+            list.innerHTML = html;
+            if (empty) { empty.style.display = state.length ? 'none' : ''; }
+            syncHidden();
+        }
+
+        function fieldHtml(f, val) {
+            var v = val == null ? '' : val;
+            var lbl = f === 'image' ? 'image url' : f;
+            var base = 'class="m-field w-full px-2 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" data-field="' + f + '"';
+            var h = '<label class="block"><span class="block text-xs mb-1 text-gray-500 dark:text-gray-400">' + esc(lbl) + '</span>';
+            if (f === 'store') {
+                h += '<select ' + base + '><option value="">--</option>';
+                (stores || []).forEach(function (s) {
+                    h += '<option value="' + esc(s) + '"' + (String(s) === String(v) ? ' selected' : '') + '>' + esc(s) + '</option>';
+                });
+                h += '</select>';
+            } else if (f === 'html') {
+                h += '<textarea ' + base + ' rows="4">' + esc(v) + '</textarea>';
+            } else if (f === 'limit' || f === 'item_id') {
+                h += '<input type="number" ' + base + ' value="' + esc(v) + '">';
+            } else {
+                h += '<input type="text" ' + base + ' value="' + esc(v) + '">';
+            }
+            h += '</label>';
+            return h;
+        }
+
+        var editing = null;
+
+        function openEditor(idx) {
+            if (disabled) { return; }
+            editing = idx;
+            var inst = state[idx];
+            var m = pool[String(inst._module_id)] || {};
+            var type = inst.type || m.type || 'text';
+            var fields = TYPE_FIELDS[type] || [];
+            var h = '<div class="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"><span class="text-xs font-medium uppercase tracking-wide">Edit module values</span><span class="text-xs text-gray-400">' + esc(labelOf(inst)) + '</span></div>';
+            h += '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4">';
+            fields.forEach(function (f) { h += fieldHtml(f, inst[f]); });
+            h += '</div>';
+            h += '<div class="px-4 pb-4 flex gap-2 justify-end">'
+                + '<button type="button" class="m-save px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors">Save</button>'
+                + '<button type="button" class="m-cancel px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-800">Cancel</button>'
+                + '</div>';
+            editor.innerHTML = h;
+            editor.style.display = 'block';
+            editor.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+
+        function closeEditor() {
+            editing = null;
+            editor.style.display = 'none';
+            editor.innerHTML = '';
+        }
+
+        function saveEditor() {
+            if (editing == null) { return; }
+            editor.querySelectorAll('.m-field').forEach(function (el) {
+                var f = el.getAttribute('data-field');
+                var v = el.value;
+                if (f === 'limit' || f === 'item_id') {
+                    v = v === '' ? '' : parseInt(v, 10);
+                    if (isNaN(v)) { v = ''; }
+                }
+                state[editing][f] = v;
+            });
+            closeEditor();
+            render();
+        }
+
+        function addModule() {
+            var id = addSelect.value;
+            if (!id) { return; }
+            var t = pool[String(id)];
+            if (!t) { return; }
+            var inst = {};
+            Object.keys(t.fields || {}).forEach(function (k) { inst[k] = t.fields[k]; });
+            inst._module_id = parseInt(id, 10);
+            state.push(inst);
+            addSelect.value = '';
+            closeEditor();
+            render();
+        }
+
+        list.addEventListener('click', function (e) {
+            var btn = e.target.closest('button[data-act]');
+            if (!btn) { return; }
+            var act = btn.getAttribute('data-act');
+            var idx = parseInt(btn.getAttribute('data-idx'), 10);
+            if (act === 'edit') { openEditor(idx); return; }
+            if (act === 'remove') { closeEditor(); state.splice(idx, 1); render(); return; }
+            if (act === 'up' && idx > 0) { closeEditor(); var t = state[idx - 1]; state[idx - 1] = state[idx]; state[idx] = t; render(); return; }
+            if (act === 'down' && idx < state.length - 1) { closeEditor(); var t2 = state[idx + 1]; state[idx + 1] = state[idx]; state[idx] = t2; render(); return; }
+        });
+
+        editor.addEventListener('click', function (e) {
+            if (e.target.closest('.m-save')) { saveEditor(); }
+            else if (e.target.closest('.m-cancel')) { closeEditor(); render(); }
+        });
+
+        if (addBtn && addSelect) {
+            addBtn.addEventListener('click', addModule);
+            addSelect.addEventListener('change', addModule);
+        }
+
+        render();
+    });
+})();
+JS;
     }
 }

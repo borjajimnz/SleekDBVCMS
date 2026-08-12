@@ -128,5 +128,17 @@
       "seo_title":"text",
       "seo_description":"textarea",
       "modules":"modules"
+   },
+   "modules":{
+      "title":"text",
+      "type":"select",
+      "subtitle":"text",
+      "image":"image",
+      "cta_text":"text",
+      "cta_url":"url",
+      "html":"rich_textarea",
+      "store":"select",
+      "limit":"number",
+      "item_id":"number"
    }
 }                                  

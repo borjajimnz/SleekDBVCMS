@@ -11,9 +11,29 @@ $metaDescription = $page['seo_description'] ?? '';
 $pageSlug = $page['slug'] ?? '';
 $previewBanner = $preview && empty($page['published']);
 
-$modules = is_string($page['modules'] ?? null) ? json_decode($page['modules'], true) : ($page['modules'] ?? []);
-if (!is_array($modules)) {
-    $modules = [];
+$moduleRefs = is_string($page['modules'] ?? null) ? json_decode($page['modules'], true) : ($page['modules'] ?? []);
+if (!is_array($moduleRefs)) {
+    $moduleRefs = [];
+}
+
+$modules = [];
+foreach ($moduleRefs as $moduleEntry) {
+    if (is_array($moduleEntry)) {
+        $modules[] = $moduleEntry;
+        continue;
+    }
+    $moduleId = (int)$moduleEntry;
+    if ($moduleId <= 0) {
+        continue;
+    }
+    try {
+        $module = $cms->getDatabase()->findById('modules', $moduleId);
+    } catch (\Throwable $e) {
+        $module = null;
+    }
+    if ($module) {
+        $modules[] = $module;
+    }
 }
 
 $ctx = [

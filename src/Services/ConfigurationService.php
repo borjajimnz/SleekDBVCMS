@@ -20,6 +20,20 @@ class ConfigurationService
         'modules' => 'modules',
     ];
 
+    // Fields of a module template record (the "modules" collection).
+    private const DEFAULT_MODULES_DEF = [
+        'title' => 'text',
+        'type' => 'select',
+        'subtitle' => 'text',
+        'image' => 'image',
+        'cta_text' => 'text',
+        'cta_url' => 'url',
+        'html' => 'rich_textarea',
+        'store' => 'select',
+        'limit' => 'number',
+        'item_id' => 'number',
+    ];
+
     private array $config;
     private string $storesFilePath;
 
@@ -55,6 +69,7 @@ class ConfigurationService
             'created' => 'datetime',
         ];
         $stores['pages'] = $stores['pages'] ?? self::DEFAULT_PAGES_DEF;
+        $stores['modules'] = $stores['modules'] ?? self::DEFAULT_MODULES_DEF;
         $this->config['stores'] = $stores;
     }
 
@@ -100,6 +115,7 @@ class ConfigurationService
                 'created' => 'datetime',
             ];
             $stores['pages'] = $stores['pages'] ?? self::DEFAULT_PAGES_DEF;
+            $stores['modules'] = $stores['modules'] ?? self::DEFAULT_MODULES_DEF;
             $decoded['stores'] = $stores;
         }
 
