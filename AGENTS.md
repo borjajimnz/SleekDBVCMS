@@ -72,7 +72,7 @@ There is **no test suite** and no `npm`/`yarn` — verify by HTTP calls (see Ver
 `ConfigurationService` distinguishes two concepts (both live on the same class):
 
 - **System stores** — always re-merged into the running config by `enforceProtectedStores()` and `saveStoresFromJson()` even if removed from `.default_stores`: `users`, `pages`, `modules`.
-- **Protected stores** (`PROTECTED_STORES = ['users', 'pages']`) — system stores whose **records cannot be deleted** (`AdminController::handleStoreDelete` redirects; the delete button is hidden in `table.php`). `isProtected()` gates record deletion only.
+- **Protected stores** (`PROTECTED_STORES = ['users']`) — system stores whose **records cannot be deleted** (`AdminController::handleStoreDelete` redirects; the delete button is hidden in `table.php`). `isProtected()` gates record deletion only.
 
 `modules` is a **system store but NOT protected**: its store must exist in config, yet module records are freely deletable.
 
@@ -120,7 +120,7 @@ There is **no test suite** and no `npm`/`yarn` — verify by HTTP calls (see Ver
   - `html` — `html` (free HTML/iframe)
   - `store_item` — `store`, `item_id`, `title` (featured single record; reads `item_id`, not `id`)
 - `public/views/page.php` resolves each `modules` entry: instance objects (arrays) and legacy inline module arrays are passed straight to `front_render_module()`; bare numeric ids are looked up in the `modules` store (backward compat).
-- `AdminController::handleStoreUpdate` sanitizes `pages.modules`: keeps instance arrays as-is and converts bare numeric ids to `{"_module_id": N}`.
+- `AdminController::handleStoreUpdate` sanitizes `pages.modules`: keeps instance arrays as-is and converts bare numeric ids to `{"_module_id": N}`. Module images arrive as base64 data URIs (client-side FileReader) — on save they are persisted via `FileManager::uploadDataUri()` (downscaled WebP under `/storage/FY/`) so the front serves a cached file instead of a multi-MB inline blob.
 
 ## SleekDB API gotchas
 

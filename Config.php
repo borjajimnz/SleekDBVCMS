@@ -20,6 +20,8 @@ $config = [
     'upload_files_extensions_allowed' => [
         'image/jpeg' => 'jpeg',
         'image/png' => 'png',
+        'image/gif' => 'gif',
+        'image/webp' => 'webp',
         'text/xml' => 'xml',
     ],
     'options' => [

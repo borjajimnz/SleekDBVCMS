@@ -155,6 +155,17 @@ class AdminController
             if (is_array($decoded)) {
                 foreach ($decoded as $entry) {
                     if (is_array($entry)) {
+                        // Module images are uploaded client-side as data URIs;
+                        // persist them so the front serves a cached file instead
+                        // of a huge inline base64 blob.
+                        foreach ($entry as $field => $value) {
+                            if ($field === 'image' && is_string($value) && strncmp($value, 'data:image/', 11) === 0) {
+                                $stored = $this->core->getFileManager()->uploadDataUri($value);
+                                if ($stored !== null) {
+                                    $entry[$field] = $stored;
+                                }
+                            }
+                        }
                         $instances[] = $entry;
                     } elseif (is_numeric($entry)) {
                         $id = (int)$entry;

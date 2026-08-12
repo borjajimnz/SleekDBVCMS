@@ -73,6 +73,64 @@ class FileManager
     }
 
     /**
+     * Persist a base64 data URI (e.g. an image pasted/uploaded into a module)
+     * as an optimized file under storage/public. Returns the public URL or
+     * null when the value is not a supported image.
+     */
+    public function uploadDataUri(string $dataUri): ?string
+    {
+        if (!preg_match('#^data:(image/[a-z0-9.+-]+);base64,(.+)$#s', $dataUri, $m)) {
+            return null;
+        }
+
+        $mime = strtolower($m[1]);
+        $extension = $this->getExtension($mime);
+        if (!$extension) {
+            return null;
+        }
+
+        $binary = base64_decode($m[2], true);
+        if ($binary === false || $binary === '') {
+            return null;
+        }
+
+        $storageDir = $this->rootPath . '/storage/public/' . date('FY');
+        if (!is_dir($storageDir)) {
+            mkdir($storageDir, 0777, true);
+        }
+
+        $fileName = md5($binary) . $extension;
+        $fullPath = $storageDir . '/' . $fileName;
+
+        if (file_exists($fullPath)) {
+            return '/storage/' . date('FY') . '/' . $fileName;
+        }
+
+        if (file_put_contents($fullPath, $binary) === false) {
+            return null;
+        }
+
+        // Optimize raster images: downscale + convert to WebP.
+        $optimized = $this->optimizeImage($fullPath, $mime);
+        if ($optimized !== null) {
+            $fullPath = $optimized;
+            $fileName = basename($optimized);
+        }
+
+        // If storage is not a symlink in public, mirror the file there.
+        $publicStorage = $this->publicPath . '/storage';
+        if (!is_link($publicStorage) && !is_dir($publicStorage)) {
+            $publicDir = $publicStorage . '/' . date('FY');
+            if (!is_dir($publicDir)) {
+                mkdir($publicDir, 0777, true);
+            }
+            copy($fullPath, $publicDir . '/' . $fileName);
+        }
+
+        return '/storage/' . date('FY') . '/' . $fileName;
+    }
+
+    /**
      * Downscale raster images larger than imageMaxSide and convert them to
      * WebP. Returns the new path when processed, null when the file is left
      * as-is (not a supported image or conversion failed).
