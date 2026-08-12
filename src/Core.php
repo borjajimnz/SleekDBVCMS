@@ -7,6 +7,8 @@ use SleekDBVCMS\Interfaces\AuthenticationInterface;
 use SleekDBVCMS\Services\ConfigurationService;
 use SleekDBVCMS\Services\FileManager;
 use SleekDBVCMS\Services\Logger;
+use SleekDBVCMS\Services\BladeRenderer;
+use SleekDBVCMS\Services\EmailService;
 use SleekDBVCMS\Forms\FormBuilder;
 use RecursiveIteratorIterator;
 use RecursiveDirectoryIterator;
@@ -19,6 +21,8 @@ class Core
     private FileManager $fileManager;
     private FormBuilder $formBuilder;
     private Logger $logger;
+    private BladeRenderer $blade;
+    private EmailService $email;
     private string $rootPath;
     private string $storagePath;
     private string $storePath;
@@ -30,6 +34,8 @@ class Core
         FileManager $fileManager,
         FormBuilder $formBuilder,
         Logger $logger,
+        BladeRenderer $blade,
+        EmailService $email,
         string $rootPath
     ) {
         $this->database = $database;
@@ -38,6 +44,8 @@ class Core
         $this->fileManager = $fileManager;
         $this->formBuilder = $formBuilder;
         $this->logger = $logger;
+        $this->blade = $blade;
+        $this->email = $email;
         $this->rootPath = $rootPath;
         $this->storagePath = $rootPath . '/storage';
         $this->storePath = $rootPath . '/storage/stores';
@@ -71,6 +79,16 @@ class Core
     public function getLogger(): Logger
     {
         return $this->logger;
+    }
+
+    public function getBlade(): BladeRenderer
+    {
+        return $this->blade;
+    }
+
+    public function getEmail(): EmailService
+    {
+        return $this->email;
     }
 
     public function getRootPath(): string
@@ -120,7 +138,7 @@ class Core
     public function ensureStorageWritable(): void
     {
         umask(0);
-        foreach (['storage', 'storage/public', 'storage/stores', 'storage/logs', 'backups'] as $dir) {
+        foreach (['storage', 'storage/public', 'storage/stores', 'storage/logs', 'storage/blade-cache', 'backups'] as $dir) {
             $path = $this->rootPath . '/' . $dir;
             if (!is_dir($path)) {
                 @mkdir($path, 0777, true);

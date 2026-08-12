@@ -21,6 +21,21 @@ $frontConfig = require __DIR__ . '/config.php';
 /** @var Core $cms */
 $stores = $cms->getConfig()->getStores();
 
+// Merge runtime site settings from the CMS dashboard (name, tagline, blog on/off).
+$settings = $cms->getConfig()->getSettings();
+$frontConfig['site_name'] = (string)($settings['site_name'] ?? $frontConfig['site_name']);
+$frontConfig['tagline'] = (string)($settings['tagline'] ?? $frontConfig['tagline'] ?? '');
+$frontConfig['blog_enabled'] = !empty($settings['blog_enabled']);
+
+// The blog is disabled: hide posts/categories from the menu and routing.
+if (empty($frontConfig['blog_enabled'])) {
+    if ($frontConfig['menu'] !== '*') {
+        $frontConfig['menu'] = array_values(array_diff($frontConfig['menu'], ['posts', 'categories']));
+    } else {
+        $frontConfig['menu'] = array_values(array_diff(array_keys($stores), ['posts', 'categories']));
+    }
+}
+
 // ---- Helpers ----
 function front_label(array $config, string $name): string
 {
@@ -48,6 +63,24 @@ function front_excerpt(string $text, int $len = 120): string
         return $text;
     }
     return mb_substr($text, 0, $len) . '…';
+}
+
+function front_richtext(?string $html): string
+{
+    $html = trim((string)$html);
+    if ($html === '') {
+        return '';
+    }
+    // Plain text (no tags): wrap lines into paragraphs so it renders like HTML.
+    if (preg_match('/<[a-z][^>]*>/i', $html) !== 1) {
+        $paragraphs = preg_split('/\r?\n\r?\n/', $html) ?: [];
+        $out = [];
+        foreach ($paragraphs as $p) {
+            $out[] = '<p>' . nl2br(front_escape($p)) . '</p>';
+        }
+        return implode("\n", $out);
+    }
+    return $html;
 }
 
 function front_store_url(string $name): string
@@ -135,6 +168,27 @@ foreach ($visiblePages as &$page) {
 }
 unset($page);
 
+// Blog disabled: drop pages whose modules reference posts/categories so they
+// disappear from the nav and their routes 404 (like the blog stores do).
+// The home page is always kept visible.
+if (empty($frontConfig['blog_enabled'])) {
+    $visiblePages = array_values(array_filter($visiblePages, function ($page) {
+        if (!empty($page['is_home'])) {
+            return true;
+        }
+        $modules = is_string($page['modules'] ?? null) ? json_decode($page['modules'], true) : ($page['modules'] ?? []);
+        if (!is_array($modules)) {
+            return true;
+        }
+        foreach ($modules as $entry) {
+            if (is_array($entry) && isset($entry['store']) && in_array($entry['store'], ['posts', 'categories'], true)) {
+                return false;
+            }
+        }
+        return true;
+    }));
+}
+
 // Nav: show_in_menu pages.
 $navPages = [];
 foreach ($visiblePages as $page) {
@@ -156,137 +210,230 @@ foreach ($allowedStores as $name) {
 function front_render_module(array $module, array $ctx): string
 {
     $type = $module['type'] ?? 'text';
-    $out = '';
+    $allowed = ['hero', 'text', 'html', 'store_list', 'store_item', 'lead_form'];
+    if (!in_array($type, $allowed, true)) {
+        $type = 'text';
+    }
+    $blade = $ctx['blade'] ?? null;
+    if (!$blade instanceof \SleekDBVCMS\Services\BladeRenderer) {
+        $blade = $ctx['cms']->getBlade();
+    }
+    return $blade->render('modules.' . $type, ['module' => $module, 'ctx' => $ctx]);
+}
 
-    switch ($type) {
-        case 'hero':
-            $image = $module['image'] ?? '';
-            $title = $module['title'] ?? '';
-            $subtitle = $module['subtitle'] ?? '';
-            $ctaText = $module['cta_text'] ?? '';
-            $ctaUrl = $module['cta_url'] ?? '';
-            $out = '<section class="relative rounded-2xl overflow-hidden bg-gray-900 text-white">';
-            if ($image) {
-                $out .= '<img src="' . front_escape($image) . '" class="absolute inset-0 w-full h-full object-cover opacity-40" alt="">';
-            }
-            $out .= '<div class="relative px-6 py-20 text-center">';
-            if ($title) {
-                $out .= '<h1 class="text-3xl sm:text-5xl font-bold">' . front_escape($title) . '</h1>';
-            }
-            if ($subtitle) {
-                $out .= '<p class="mt-4 text-gray-200 max-w-xl mx-auto">' . front_escape($subtitle) . '</p>';
-            }
-            if ($ctaText && $ctaUrl) {
-                $out .= '<a href="' . front_escape($ctaUrl) . '" class="mt-6 inline-block px-6 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium">' . front_escape($ctaText) . '</a>';
-            }
-            $out .= '</div></section>';
+// ---- Lead form submission (POST) ----
+function front_handle_lead_submit(Core $cms, array $stores, array $visiblePages): void
+{
+    $slug = trim((string)($_POST['lead_page'] ?? ''));
+    $index = (int)($_POST['lead_index'] ?? 0);
+
+    // Locate the page that owns the form.
+    $page = null;
+    foreach ($visiblePages as $p) {
+        if (trim($p['slug'] ?? '') === $slug) {
+            $page = $p;
             break;
-
-        case 'store_list':
-            $store = $module['store'] ?? null;
-            $limit = (int)($module['limit'] ?? 4);
-            $title = $module['title'] ?? '';
-            $stores = $ctx['stores'];
-            $frontConfig = $ctx['config'];
-            $cms = $ctx['cms'];
-
-            if (!$store || !isset($stores[$store])) {
-                break;
-            }
-            $rows = $cms->getDatabase()->findAll($store, ['_id' => 'desc']);
-            $rows = array_slice(front_resolve_joins($cms, $stores, $store, $rows), 0, $limit);
-            $fields = $stores[$store];
-
-            $out = '<section>';
-            if ($title) {
-                $out .= '<div class="flex items-center justify-between mb-4">';
-                $out .= '<h2 class="text-xl font-semibold">' . front_escape($title) . '</h2>';
-                $out .= '<a href="' . front_store_url($store) . '" class="text-sm text-blue-600 dark:text-blue-400 hover:underline">View all →</a>';
-                $out .= '</div>';
-            }
-            if (empty($rows)) {
-                $out .= '<p class="text-gray-500 dark:text-gray-400 text-sm">No items yet.</p>';
-            } else {
-                $out .= '<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">';
-                foreach ($rows as $row) {
-                    $img = front_image_of($frontConfig, $row, $fields);
-                    $out .= '<a href="' . front_item_url($store, $row['_id']) . '" class="group bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm hover:shadow-md transition-shadow">';
-                    if ($img) {
-                        $out .= '<div class="aspect-video bg-gray-100 dark:bg-gray-800 overflow-hidden"><img src="' . front_escape($img) . '" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform" alt=""></div>';
-                    }
-                    $out .= '<div class="p-4">';
-                    $titleShown = false;
-                    foreach ($fields as $fname => $ftype) {
-                        if (is_array($ftype) || in_array($ftype, $frontConfig['image_fields'], true) || in_array($ftype, $frontConfig['html_fields'], true)) {
-                            continue;
-                        }
-                        if (empty($row[$fname])) {
-                            continue;
-                        }
-                        if (!$titleShown && ($fname === 'title' || $fname === 'name')) {
-                            $out .= '<h3 class="font-semibold mb-1 truncate">' . front_escape($row[$fname]) . '</h3>';
-                            $titleShown = true;
-                        } elseif ($ftype === 'textarea' || $ftype === 'text') {
-                            $out .= '<p class="text-sm text-gray-500 dark:text-gray-400 line-clamp-2">' . front_escape(front_excerpt($row[$fname], 80)) . '</p>';
-                            break;
-                        }
-                    }
-                    if (!$titleShown) {
-                        $out .= '<h3 class="font-semibold truncate">#' . (int)$row['_id'] . '</h3>';
-                    }
-                    $out .= '</div></a>';
-                }
-                $out .= '</div>';
-            }
-            $out .= '</section>';
-            break;
-
-        case 'store_item':
-            $store = $module['store'] ?? null;
-            $id = (int)($module['item_id'] ?? $module['id'] ?? 0);
-            $title = $module['title'] ?? '';
-            $stores = $ctx['stores'];
-            $cms = $ctx['cms'];
-
-            if (!$store || !isset($stores[$store]) || $id === 0) {
-                break;
-            }
-            $row = $cms->getDatabase()->findById($store, $id);
-            if (!$row) {
-                break;
-            }
-            $fields = $stores[$store];
-            $img = front_image_of($ctx['config'], $row, $fields);
-            $out = '<section>';
-            if ($title) {
-                $out .= '<h2 class="text-xl font-semibold mb-4">' . front_escape($title) . '</h2>';
-            }
-            $out .= '<a href="' . front_item_url($store, $id) . '" class="block bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm hover:shadow-md transition-shadow sm:flex">';
-            if ($img) {
-                $out .= '<div class="sm:w-1/3 bg-gray-100 dark:bg-gray-800"><img src="' . front_escape($img) . '" loading="lazy" class="w-full h-full object-cover" alt=""></div>';
-            }
-            $out .= '<div class="p-5 flex-1">';
-            $out .= '<h3 class="font-semibold mb-1">' . front_escape($row['title'] ?? $row['name'] ?? '#' . $id) . '</h3>';
-            foreach ($fields as $fname => $ftype) {
-                if (in_array($ftype, $ctx['config']['html_fields'], true) && !empty($row[$fname])) {
-                    $out .= '<p class="mt-2 prose-html">' . front_excerpt($row[$fname], 160) . '</p>';
-                    break;
-                }
-            }
-            $out .= '</div></a></section>';
-            break;
-
-        case 'html':
-            $out = '<section class="prose-html">' . ($module['html'] ?? '') . '</section>';
-            break;
-
-        case 'text':
-        default:
-            $out = '<section class="prose-html">' . ($module['html'] ?? ($module['content'] ?? '')) . '</section>';
-            break;
+        }
+    }
+    if (!$page) {
+        return;
     }
 
-    return $out;
+    // Find the lead_form module instance at the posted index.
+    $moduleRefs = is_string($page['modules'] ?? null) ? json_decode($page['modules'], true) : ($page['modules'] ?? []);
+    if (!is_array($moduleRefs)) {
+        return;
+    }
+    $resolved = [];
+    foreach ($moduleRefs as $entry) {
+        if (is_array($entry)) {
+            $resolved[] = $entry;
+        } else {
+            $moduleId = (int)$entry;
+            if ($moduleId > 0) {
+                $module = $cms->getDatabase()->findById('modules', $moduleId);
+                if ($module) {
+                    $resolved[] = $module;
+                }
+            }
+        }
+    }
+    if (!isset($resolved[$index]) || (($resolved[$index]['type'] ?? '') !== 'lead_form')) {
+        return;
+    }
+    $formConfig = $resolved[$index];
+
+    // Validate required fields against the configured field definitions.
+    $fieldDefs = is_string($formConfig['fields'] ?? null) ? json_decode($formConfig['fields'], true) : ($formConfig['fields'] ?? []);
+    if (!is_array($fieldDefs)) {
+        $fieldDefs = [];
+    }
+    $payload = [];
+    foreach ($fieldDefs as $field) {
+        if (!is_array($field) || empty($field['name'])) {
+            continue;
+        }
+        $name = $field['name'];
+        $value = trim((string)($_POST[$name] ?? ''));
+        if (!empty($field['required']) && $value === '') {
+            header('Location: /' . rawurlencode($slug) . '?error=' . urlencode('Please fill in all required fields.'));
+            exit;
+        }
+        $payload[$name] = $value;
+    }
+
+    // Persist the lead.
+    $cms->getDatabase()->insert('leads', [
+        'form' => (string)($formConfig['title'] ?? 'Lead form'),
+        'name' => (string)($payload['name'] ?? ''),
+        'email' => (string)($payload['email'] ?? ''),
+        'phone' => (string)($payload['phone'] ?? ''),
+        'company' => (string)($payload['company'] ?? ''),
+        'message' => (string)($payload['message'] ?? ''),
+        'page' => $slug,
+        'payload' => json_encode($payload),
+        'created' => date('Y-m-d H:i:s'),
+    ]);
+
+    // Notify by email when SMTP is configured on the dashboard.
+    $to = trim((string)($formConfig['notify_to'] ?? ''));
+    $cc = trim((string)($formConfig['notify_cc'] ?? ''));
+    if ($to !== '' && $cms->getEmail()->isConfigured()) {
+        $subject = 'New lead: ' . ((string)($formConfig['title'] ?? 'Lead form')) . ' (' . $slug . ')';
+        $body = front_lead_email_html($payload, $formConfig, $slug);
+        $replyTo = (string)($payload['email'] ?? '');
+        $cms->getEmail()->send($to, $subject, $body, $cc, $replyTo);
+    }
+
+    header('Location: /' . rawurlencode($slug) . '?sent=1');
+    exit;
+}
+
+function front_lead_email_html(array $payload, array $formConfig, string $slug): string
+{
+    $rows = '';
+    foreach ($payload as $name => $value) {
+        if ($value === '') {
+            continue;
+        }
+        $rows .= '<tr><td style="padding:6px 12px;font-weight:600;vertical-align:top;white-space:nowrap;">'
+            . htmlspecialchars(ucfirst(str_replace('_', ' ', $name)), ENT_QUOTES, 'UTF-8')
+            . '</td><td style="padding:6px 12px;vertical-align:top;">'
+            . nl2br(htmlspecialchars($value, ENT_QUOTES, 'UTF-8'))
+            . '</td></tr>';
+    }
+    $title = htmlspecialchars((string)($formConfig['title'] ?? 'Lead form'), ENT_QUOTES, 'UTF-8');
+    return '<html><body style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#111;">'
+        . '<h2 style="margin:0 0 16px;">' . $title . '</h2>'
+        . '<p style="margin:0 0 8px;color:#666;">Submitted from: /' . htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') . '</p>'
+        . '<table style="border-collapse:collapse;border:1px solid #e5e7eb;width:100%;">' . $rows . '</table>'
+        . '</body></html>';
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['lead_submit'])) {
+    front_handle_lead_submit($cms, $stores, $visiblePages);
+}
+
+// ---- Sitemap.xml ----
+function front_site_url(): string
+{
+    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    return ($https ? 'https' : 'http') . '://' . $host;
+}
+
+function front_xml_escape($value): string
+{
+    return htmlspecialchars((string)($value ?? ''), ENT_XML1 | ENT_QUOTES, 'UTF-8');
+}
+
+function front_render_sitemap(Core $cms, array $stores, array $visiblePages, array $frontConfig): void
+{
+    header('Content-Type: application/xml; charset=utf-8');
+    $base = front_site_url();
+    $urls = [];
+
+    $urls[] = ['loc' => $base . '/'];
+
+    foreach ($visiblePages as $p) {
+        $slug = trim($p['slug'] ?? '');
+        if ($slug === '') {
+            continue;
+        }
+        if (!empty($p['is_home'])) {
+            continue;
+        }
+        $urls[] = ['loc' => $base . '/' . rawurlencode($slug)];
+    }
+
+    if (!empty($frontConfig['blog_enabled']) && isset($stores['posts'])) {
+        try {
+            $posts = $cms->getDatabase()->findAll('posts', ['_id' => 'desc']);
+        } catch (\Throwable $e) {
+            $posts = [];
+        }
+        foreach ($posts as $post) {
+            if (empty($post['published'])) {
+                continue;
+            }
+            $entry = ['loc' => $base . front_item_url('posts', $post['_id'])];
+            if (!empty($post['published_at'])) {
+                $ts = strtotime((string)$post['published_at']);
+                if ($ts) {
+                    $entry['lastmod'] = date('Y-m-d', $ts);
+                }
+            }
+            $urls[] = $entry;
+        }
+    }
+
+    echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
+    echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
+    foreach ($urls as $u) {
+        echo "\t<url>\n";
+        echo "\t\t<loc>" . front_xml_escape($u['loc']) . "</loc>\n";
+        if (!empty($u['lastmod'])) {
+            echo "\t\t<lastmod>" . front_xml_escape($u['lastmod']) . "</lastmod>\n";
+        }
+        echo "\t</url>\n";
+    }
+    echo '</urlset>' . "\n";
+    exit;
+}
+
+// ---- SEO redirects ----
+function front_apply_redirects(Core $cms, array $stores, string $path): void
+{
+    if (!isset($stores['redirects'])) {
+        return;
+    }
+    try {
+        $redirects = $cms->getDatabase()->findAll('redirects');
+    } catch (\Throwable $e) {
+        return;
+    }
+    $current = '/' . ltrim(rtrim($path, '/'), '/');
+
+    foreach ($redirects as $rule) {
+        if (empty($rule['enabled'])) {
+            continue;
+        }
+        $source = trim((string)($rule['source'] ?? ''));
+        $target = trim((string)($rule['target'] ?? ''));
+        if ($source === '' || $target === '') {
+            continue;
+        }
+        $source = '/' . ltrim(rtrim($source, '/'), '/');
+        if ($source === $current) {
+            $code = (int)($rule['code'] ?? 301);
+            if (!in_array($code, [301, 302, 307, 308], true)) {
+                $code = 301;
+            }
+            header('Location: ' . $target, true, $code);
+            exit;
+        }
+    }
 }
 
 // ---- Routing ----
@@ -304,6 +451,14 @@ foreach (explode('/', $path) as $seg) {
 if ($segments === ['index.php']) {
     $segments = [];
 }
+
+// Sitemap.xml endpoint (before page/store routing).
+if ($path === '/sitemap.xml' || $path === '/sitemap') {
+    front_render_sitemap($cms, $stores, $visiblePages, $frontConfig);
+}
+
+// SEO redirects from the "redirects" store.
+front_apply_redirects($cms, $stores, $path);
 
 $storeName = null;
 $pageSlug = null;
@@ -364,7 +519,7 @@ if ($segments === []) {
     $id = ctype_digit($segments[1]) ? (int)$segments[1] : null;
     if ($id === null) {
         http_response_code(404);
-        require __DIR__ . '/views/404.php';
+        echo $cms->getBlade()->render('404', ['frontConfig' => $frontConfig, 'navPages' => $navPages, 'storeName' => $storeName, 'pageSlug' => $pageSlug]);
         exit;
     }
 }
@@ -373,7 +528,7 @@ if ($segments === []) {
 if ($storeName !== null) {
     if (!isset($stores[$storeName]) || !isset($menuStores[$storeName])) {
         http_response_code(404);
-        require __DIR__ . '/views/404.php';
+        echo $cms->getBlade()->render('404', ['frontConfig' => $frontConfig, 'navPages' => $navPages, 'storeName' => $storeName, 'pageSlug' => $pageSlug]);
         exit;
     }
     $fields = $stores[$storeName];
@@ -382,17 +537,35 @@ if ($storeName !== null) {
         $row = $cms->getDatabase()->findById($storeName, $id);
         if (!$row) {
             http_response_code(404);
-            require __DIR__ . '/views/404.php';
+            echo $cms->getBlade()->render('404', ['frontConfig' => $frontConfig, 'navPages' => $navPages, 'storeName' => $storeName, 'pageSlug' => $pageSlug]);
             exit;
         }
         $row = front_resolve_joins($cms, $stores, $storeName, [$row])[0];
-        require __DIR__ . '/views/detail.php';
+        echo $cms->getBlade()->render('detail', [
+            'frontConfig' => $frontConfig,
+            'menuStores' => $menuStores,
+            'stores' => $stores,
+            'navPages' => $navPages,
+            'storeName' => $storeName,
+            'pageSlug' => $pageSlug,
+            'fields' => $fields,
+            'row' => $row,
+        ]);
         exit;
     }
 
     $rows = $cms->getDatabase()->findAll($storeName, ['_id' => 'desc']);
     $rows = front_resolve_joins($cms, $stores, $storeName, $rows);
-    require __DIR__ . '/views/list.php';
+    echo $cms->getBlade()->render('list', [
+        'frontConfig' => $frontConfig,
+        'menuStores' => $menuStores,
+        'stores' => $stores,
+        'navPages' => $navPages,
+        'storeName' => $storeName,
+        'pageSlug' => $pageSlug,
+        'fields' => $fields,
+        'rows' => $rows,
+    ]);
     exit;
 }
 
@@ -407,10 +580,21 @@ if ($pageSlug !== null) {
     }
     if (!$page) {
         http_response_code(404);
-        require __DIR__ . '/views/404.php';
+        echo $cms->getBlade()->render('404', ['frontConfig' => $frontConfig, 'navPages' => $navPages, 'storeName' => $storeName, 'pageSlug' => $pageSlug]);
         exit;
     }
-    require __DIR__ . '/views/page.php';
+    echo $cms->getBlade()->render('page', [
+        'frontConfig' => $frontConfig,
+        'menuStores' => $menuStores,
+        'stores' => $stores,
+        'navPages' => $navPages,
+        'storeName' => $storeName,
+        'pageSlug' => $pageSlug,
+        'page' => $page,
+        'preview' => $preview,
+        'cms' => $cms,
+        'blade' => $cms->getBlade(),
+    ]);
     exit;
 }
 
@@ -428,10 +612,25 @@ if (!$homePage && !empty($visiblePages)) {
 
 if ($homePage) {
     $page = $homePage;
-    require __DIR__ . '/views/page.php';
+    echo $cms->getBlade()->render('page', [
+        'frontConfig' => $frontConfig,
+        'menuStores' => $menuStores,
+        'stores' => $stores,
+        'navPages' => $navPages,
+        'storeName' => $storeName,
+        'pageSlug' => $pageSlug,
+        'page' => $page,
+        'preview' => $preview,
+        'cms' => $cms,
+        'blade' => $cms->getBlade(),
+    ]);
     exit;
 }
 
 // ---- Fallback: no pages yet ----
-$pageTitle = null;
-require __DIR__ . '/views/empty.php';
+echo $cms->getBlade()->render('empty', [
+    'frontConfig' => $frontConfig,
+    'navPages' => $navPages,
+    'storeName' => $storeName,
+    'pageSlug' => $pageSlug,
+]);

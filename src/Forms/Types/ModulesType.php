@@ -7,7 +7,7 @@ class ModulesType extends AbstractType
     // All fields a module instance can carry (matches the "modules" collection).
     private function moduleFields(): array
     {
-        return ['title', 'type', 'subtitle', 'image', 'cta_text', 'cta_url', 'html', 'store', 'limit', 'item_id'];
+        return ['title', 'type', 'subtitle', 'image', 'cta_text', 'cta_url', 'html', 'store', 'limit', 'item_id', 'fields', 'notify_to', 'notify_cc', 'button_text', 'success_message'];
     }
 
     // Maps each module field to the CMS form component used to edit it.
@@ -23,6 +23,11 @@ class ModulesType extends AbstractType
             'store' => 'select',
             'limit' => 'number',
             'item_id' => 'number',
+            'fields' => 'textarea',
+            'notify_to' => 'text',
+            'notify_cc' => 'text',
+            'button_text' => 'text',
+            'success_message' => 'text',
         ];
     }
 
@@ -42,6 +47,7 @@ class ModulesType extends AbstractType
             'rich_textarea' => new RichTextareaType(),
             'number' => new NumberType(),
             'select' => new SelectType(),
+            'textarea' => new TextareaType(),
         ];
         $templates = [];
         $fieldTypeMap = [];
@@ -156,7 +162,8 @@ class ModulesType extends AbstractType
             text: ['html'],
             html: ['html'],
             store_list: ['title', 'store', 'limit'],
-            store_item: ['title', 'store', 'item_id']
+            store_item: ['title', 'store', 'item_id'],
+            lead_form: ['title', 'subtitle', 'fields', 'notify_to', 'notify_cc', 'button_text', 'success_message']
         };
 
         var state = [];
@@ -271,6 +278,7 @@ class ModulesType extends AbstractType
 
         function openEditor(idx) {
             if (disabled) { return; }
+            if (window.cmsRichText) { window.cmsRichText.destroy(editor); }
             editing = idx;
             var inst = state[idx];
             var m = pool[String(inst._module_id)] || {};
@@ -286,12 +294,14 @@ class ModulesType extends AbstractType
                 + '</div>';
             editor.innerHTML = h;
             bindValues();
+            if (window.cmsRichText) { window.cmsRichText.init(editor); }
             editor.style.display = 'block';
             editor.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         }
 
         function closeEditor() {
             editing = null;
+            if (window.cmsRichText) { window.cmsRichText.destroy(editor); }
             editor.style.display = 'none';
             editor.innerHTML = '';
         }

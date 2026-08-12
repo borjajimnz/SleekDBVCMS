@@ -16,7 +16,8 @@
    "require":{
       "php":">=8.1",
       "ext-json":"*",
-      "rakibtg/sleekdb":"2.15"
+      "rakibtg/sleekdb":"2.15",
+      "jenssegers/blade": "^2.0"
    },
    "autoload":{
       "psr-4":{

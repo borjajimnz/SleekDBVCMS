@@ -3,13 +3,18 @@
 /** @var string $content */
 
 $current = $_GET['p'] ?? null;
-$stores = $core->getConfig()->getStores();
+$stores = $core->getConfig()->getVisibleStores();
+
+$siteName = (string)$core->getConfig()->getSetting('site_name', '');
+if ($siteName === '') {
+    $siteName = (string)$core->getConfig()->get('app_name', 'SleekDBVCMS');
+}
 
 // Sidebar sections: content stores vs system stores.
 $contentStores = [];
 $systemStores = [];
 foreach ($stores as $name => $def) {
-    if (in_array($name, ['pages', 'modules', 'users', 'roles'], true)) {
+    if (in_array($name, ['pages', 'modules', 'users', 'roles', 'posts', 'categories', 'redirects', 'leads'], true)) {
         $systemStores[$name] = $def;
     } else {
         $contentStores[$name] = $def;
@@ -31,11 +36,13 @@ function cms_store_link(string $name, ?string $current): string
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title><?php print $core->getConfig()->get('app_name', 'SleekDBVCMS'); ?></title>
+    <title><?php print htmlspecialchars($siteName); ?></title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = { darkMode: 'class' };
     </script>
+    <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
     <script>
         // Apply theme before render to avoid flash
         (function () {
@@ -47,6 +54,12 @@ function cms_store_link(string $name, ?string $current): string
     </script>
     <style>
         .json-editor { min-height: 600px; font-family: ui-monospace, monospace; font-size: 0.8rem; }
+        .ql-toolbar.ql-snow, .ql-container.ql-snow { border-color: #d1d5db; }
+        .dark .ql-toolbar.ql-snow, .dark .ql-container.ql-snow { border-color: #374151; }
+        .dark .ql-snow .ql-stroke { stroke: #d1d5db; }
+        .dark .ql-snow .ql-fill { fill: #d1d5db; }
+        .dark .ql-snow .ql-picker, .dark .ql-snow .ql-picker-label, .dark .ql-snow .ql-picker-item { color: #d1d5db; }
+        .ql-container { font-size: 0.95rem; }
     </style>
 </head>
 <body class="h-full bg-gray-100 dark:bg-gray-950 text-gray-900 dark:text-gray-100 antialiased">
@@ -58,7 +71,7 @@ function cms_store_link(string $name, ?string $current): string
         <aside id="sidebar"
                class="fixed inset-y-0 left-0 z-40 w-64 -translate-x-full transition-transform duration-200 lg:translate-x-0 lg:static lg:z-auto bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col">
             <div class="flex items-center justify-between px-4 h-16 border-b border-gray-200 dark:border-gray-800">
-                <a href="index.php" class="font-bold text-lg truncate"><?php print $core->getConfig()->get('app_name', 'SleekDBVCMS'); ?></a>
+                <a href="index.php" class="font-bold text-lg truncate"><?php print htmlspecialchars($siteName); ?></a>
                 <button onclick="toggleSidebar(false)" class="lg:hidden text-gray-500 dark:text-gray-400">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
@@ -139,6 +152,56 @@ function cms_store_link(string $name, ?string $current): string
             var dark = document.documentElement.classList.toggle('dark');
             localStorage.setItem('cms-theme', dark ? 'dark' : 'light');
         }
+    </script>
+    <script>
+        // Rich text editor: upgrade every textarea.rich-editor into a Quill instance.
+        // The hidden textarea keeps the value so form submission works unchanged.
+        window.cmsRichText = {
+            _registry: {},
+            init: function (scope) {
+                if (typeof Quill === 'undefined') { return; }
+                scope = scope || document;
+                var tas = scope.querySelectorAll('textarea.rich-editor');
+                tas.forEach(function (ta) {
+                    if (ta.disabled || ta.getAttribute('data-quill') === '1') { return; }
+                    ta.setAttribute('data-quill', '1');
+                    var host = document.createElement('div');
+                    ta.parentNode.insertBefore(host, ta.nextSibling);
+                    var quill = new Quill(host, {
+                        theme: 'snow',
+                        modules: {
+                            toolbar: [
+                                [{ header: [2, 3, false] }],
+                                ['bold', 'italic', 'underline', 'strike'],
+                                [{ list: 'ordered' }, { list: 'bullet' }],
+                                ['link', 'blockquote', 'code-block'],
+                                ['clean']
+                            ]
+                        }
+                    });
+                    if (ta.value) { quill.clipboard.dangerouslyPasteHTML(ta.value); }
+                    quill.on('text-change', function () { ta.value = quill.root.innerHTML; });
+                    ta.style.display = 'none';
+                    this._registry[ta.id || host.getAttribute('data-rid') || Math.random()] = { ta: ta, quill: quill };
+                }.bind(this));
+            },
+            destroy: function (scope) {
+                scope = scope || document;
+                Object.keys(this._registry).forEach(function (key) {
+                    var item = this._registry[key];
+                    if (!scope.contains(item.ta)) { return; }
+                    item.quill.destroy();
+                    var host = item.ta.nextSibling;
+                    if (host) { host.remove(); }
+                    item.ta.style.display = '';
+                    item.ta.removeAttribute('data-quill');
+                    delete this._registry[key];
+                }.bind(this));
+            }
+        };
+        document.addEventListener('DOMContentLoaded', function () {
+            window.cmsRichText.init(document);
+        });
     </script>
 </body>
 </html>

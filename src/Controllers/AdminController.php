@@ -62,6 +62,9 @@ class AdminController
         if (isset($_POST['update_config'])) {
             $this->handleConfigUpdate();
         }
+        if (isset($_POST['update_settings'])) {
+            $this->handleSettingsUpdate();
+        }
         if (isset($_GET['backup'])) {
             $this->handleBackup();
         }
@@ -76,7 +79,7 @@ class AdminController
 
     private function renderDashboard(): void
     {
-        $stores = $this->core->getConfig()->getStores();
+        $stores = $this->core->getConfig()->getVisibleStores();
         $db = $this->core->getDatabase();
 
         $stats = [];
@@ -94,7 +97,8 @@ class AdminController
 
         $msg = $_SESSION['config_msg'] ?? null;
         $backupMsg = $_SESSION['backup_msg'] ?? null;
-        unset($_SESSION['config_msg'], $_SESSION['backup_msg']);
+        $settingsMsg = $_SESSION['settings_msg'] ?? null;
+        unset($_SESSION['config_msg'], $_SESSION['backup_msg'], $_SESSION['settings_msg']);
 
         $users = [];
         try {
@@ -108,11 +112,18 @@ class AdminController
             'msg' => $msg,
             'backupMsg' => $backupMsg,
             'users' => $users,
+            'settings' => $this->core->getConfig()->getSettings(),
+            'settingsMsg' => $settingsMsg,
         ]);
     }
 
     private function handleStoreUpdate(string $table, string $action): void
     {
+        if (!$this->core->getConfig()->isStoreVisible($table)) {
+            $this->core->redirect('index.php');
+            return;
+        }
+
         $data = $_POST;
         $files = $_FILES;
         $stores = $this->core->getConfig()->getStores();
@@ -190,6 +201,11 @@ class AdminController
 
     private function handleStoreDelete(string $table): void
     {
+        if (!$this->core->getConfig()->isStoreVisible($table)) {
+            $this->core->redirect('index.php');
+            return;
+        }
+
         // Protected stores cannot have their records deleted.
         if ($this->core->getConfig()->isProtected($table)) {
             $this->core->redirect('index.php?p=' . urlencode($table));
@@ -215,6 +231,26 @@ class AdminController
         $_SESSION['config_msg'] = $ok
             ? 'JSON saved.'
             : 'Invalid JSON, no possible to save this file.';
+        $this->core->redirect('index.php');
+    }
+
+    private function handleSettingsUpdate(): void
+    {
+        $settings = json_encode([
+            'site_name' => (string)($_POST['site_name'] ?? ''),
+            'tagline' => (string)($_POST['tagline'] ?? ''),
+            'blog_enabled' => !empty($_POST['blog_enabled']),
+            'smtp_enabled' => !empty($_POST['smtp_enabled']),
+            'smtp_host' => (string)($_POST['smtp_host'] ?? ''),
+            'smtp_port' => (int)($_POST['smtp_port'] ?? 587),
+            'smtp_username' => (string)($_POST['smtp_username'] ?? ''),
+            'smtp_password' => (string)($_POST['smtp_password'] ?? ''),
+            'smtp_encryption' => (string)($_POST['smtp_encryption'] ?? 'tls'),
+            'smtp_from_email' => (string)($_POST['smtp_from_email'] ?? ''),
+            'smtp_from_name' => (string)($_POST['smtp_from_name'] ?? ''),
+        ]);
+        $ok = $this->core->getConfig()->saveSettingsFromJson((string)$settings);
+        $_SESSION['settings_msg'] = $ok ? 'Settings saved.' : 'Could not save settings.';
         $this->core->redirect('index.php');
     }
 
@@ -261,6 +297,10 @@ class AdminController
 
     private function handleStoreView(string $table): void
     {
+        if (!$this->core->getConfig()->isStoreVisible($table)) {
+            $this->core->redirect('index.php');
+        }
+
         $stores = $this->core->getConfig()->getStores();
         if (!isset($stores[$table])) {
             $this->core->redirect('index.php');

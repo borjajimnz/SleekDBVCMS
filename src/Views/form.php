@@ -58,12 +58,22 @@ $isView = $action === 'view_row';
                                 'store_list' => 'Store list',
                                 'html' => 'HTML',
                                 'store_item' => 'Store item',
+                                'lead_form' => 'Lead form',
                             ];
                         } elseif ($name === 'store') {
                             $fieldOptions = [];
                             foreach ($core->getConfig()->getStores() as $storeName => $storeDef) {
                                 $fieldOptions[$storeName] = $storeName;
                             }
+                        }
+                    } elseif ($fieldType === 'select' && $table === 'redirects') {
+                        if ($name === 'code') {
+                            $fieldOptions = [
+                                '301' => '301 Moved Permanently',
+                                '302' => '302 Found (temporary)',
+                                '307' => '307 Temporary Redirect',
+                                '308' => '308 Permanent Redirect',
+                            ];
                         }
                     }
 

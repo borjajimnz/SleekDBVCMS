@@ -57,7 +57,8 @@ if ($table === 'pages') {
             </thead>
             <tbody>
                 <?php foreach ($rows as $row) { ?>
-                    <tr class="border-b border-gray-100 dark:border-gray-800 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                    <tr class="border-b border-gray-100 dark:border-gray-800 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer"
+                        onclick="if (event.target.closest('button, a, input, select, label')) return; window.location='index.php?p=<?php print urlencode($table); ?>&update=1&id=<?php print (int)$row['_id']; ?>'">
                         <td class="px-4 py-3 text-gray-500 dark:text-gray-400"><?php print $row['_id']; ?></td>
                         <?php foreach ($fields as $name => $value) { ?>
                             <?php if (is_array($value) && isset($value['join'])) { ?>

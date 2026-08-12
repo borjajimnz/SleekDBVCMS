@@ -4,5 +4,7 @@ composer.lock
 /storage/public
 !/storage/public/readme.txt
 /storage/logs
+/storage/blade-cache
+/storage/settings.json
 /backups
 

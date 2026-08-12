@@ -9,6 +9,8 @@ use SleekDBVCMS\Services\SleekDBManager;
 use SleekDBVCMS\Services\AuthenticationService;
 use SleekDBVCMS\Services\FileManager;
 use SleekDBVCMS\Services\Logger;
+use SleekDBVCMS\Services\BladeRenderer;
+use SleekDBVCMS\Services\EmailService;
 use SleekDBVCMS\Forms\FormBuilder;
 
 $curDir = dirname(__FILE__);
@@ -36,7 +38,7 @@ if (!file_exists($config['public_path'])) {
 }
 
 // Create storage paths.
-foreach (['storage', 'storage/public', 'storage/stores', 'storage/logs', 'backups'] as $dir) {
+foreach (['storage', 'storage/public', 'storage/stores', 'storage/logs', 'storage/blade-cache', 'backups'] as $dir) {
     if (!is_dir($curDir . '/' . $dir)) {
         @mkdir($curDir . '/' . $dir, 0777, true);
     }
@@ -62,7 +64,7 @@ $logger->registerHandlers();
 
 $database = new SleekDBManager($curDir . '/storage/stores', $config['options'] ?? []);
 $auth = new AuthenticationService($database);
-$configuration = new ConfigurationService($config, $curDir . '/.default_stores');
+$configuration = new ConfigurationService($config, $curDir . '/.default_stores', $curDir . '/storage/settings.json');
 $fileManager = new FileManager(
     $curDir,
     $config['public_path'],
@@ -71,6 +73,8 @@ $fileManager = new FileManager(
     (int)($config['options']['image_quality'] ?? 80)
 );
 $formBuilder = new FormBuilder();
+$blade = new BladeRenderer($curDir . '/public/views', $curDir . '/storage/blade-cache');
+$email = new EmailService($configuration->getSettings(), $logger);
 
 $cms = new Core(
     $database,
@@ -79,6 +83,8 @@ $cms = new Core(
     $fileManager,
     $formBuilder,
     $logger,
+    $blade,
+    $email,
     $curDir
 );
 
