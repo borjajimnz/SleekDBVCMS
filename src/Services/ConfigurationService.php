@@ -5,7 +5,7 @@ namespace SleekDBVCMS\Services;
 class ConfigurationService
 {
     // Stores that are required by the system and cannot be removed.
-    public const PROTECTED_STORES = ['users', 'pages'];
+    public const PROTECTED_STORES = ['users'];
 
     // Store definitions that are always enforced.
     private const DEFAULT_PAGES_DEF = [
