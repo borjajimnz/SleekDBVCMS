@@ -27,7 +27,7 @@
         @endif
         <a href="{{ front_item_url($store, $id) }}" class="block bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm hover:shadow-md transition-shadow sm:flex">
             @if ($img)
-                <div class="sm:w-1/3 bg-gray-100 dark:bg-gray-800"><img src="{{ $img }}" loading="lazy" class="w-full h-full object-cover" alt=""></div>
+                <div class="sm:w-1/3 bg-gray-100 dark:bg-gray-800"><img src="{{ $img }}" fetchpriority="high" decoding="async" class="w-full h-56 sm:h-full object-cover" alt=""></div>
             @endif
             <div class="p-5 flex-1">
                 <h3 class="font-semibold mb-1">{{ $row['title'] ?? $row['name'] ?? '#' . $id }}</h3>

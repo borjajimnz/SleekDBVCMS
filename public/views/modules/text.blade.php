@@ -1,1 +1,1 @@
-<section class="prose-html">{!! $module['html'] ?? ($module['content'] ?? '') !!}</section>
+<section class="prose-html">{!! front_richtext($module['html'] ?? ($module['content'] ?? '')) !!}</section>

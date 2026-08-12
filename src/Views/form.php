@@ -65,24 +65,23 @@ $isView = $action === 'view_row';
                             $fieldOptions = [
                                 'hero' => 'Hero',
                                 'text' => 'Text',
-                                'store_list' => 'Store list',
                                 'html' => 'HTML',
+                                'store_list' => 'Store list',
                                 'store_item' => 'Store item',
                                 'lead_form' => 'Lead form',
+                                'cta' => 'Call to action',
+                                'split' => 'Split (text + image)',
+                                'features' => 'Features grid',
+                                'stats' => 'Stats band',
+                                'testimonials' => 'Testimonials',
+                                'faq' => 'FAQ accordion',
+                                'pricing' => 'Pricing plans',
+                                'logos' => 'Logos strip',
+                                'video' => 'Video',
                             ];
-                        } elseif ($name === 'store') {
-                            $fieldOptions = [];
-                            foreach ($core->getConfig()->getStores() as $storeName => $storeDef) {
-                                $fieldOptions[$storeName] = $storeName;
-                            }
-                        } elseif ($name === 'form_id') {
-                            $fieldOptions = [];
-                            foreach ($core->getDatabase()->findAll('forms', ['_id' => 'desc']) as $form) {
-                                $fieldOptions[(string)$form['_id']] = trim((string)($form['title'] ?? '')) !== ''
-                                    ? $form['title']
-                                    : 'Form #' . $form['_id'];
-                            }
                         }
+                    } elseif ($fieldType === 'repeater') {
+                        $attrs['schema'] = \SleekDBVCMS\Forms\Types\RepeaterType::schemaForField($name);
                     } elseif ($fieldType === 'select' && $table === 'redirects') {
                         if ($name === 'code') {
                             $fieldOptions = [

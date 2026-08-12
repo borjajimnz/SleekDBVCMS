@@ -159,6 +159,11 @@ class AdminController
             $update['slug'] = $this->slugify($source);
         }
 
+        // Persist any client-side uploaded image data URIs (module templates,
+        // repeater images, etc.) into the storage directory so the front
+        // serves cached files instead of multi-MB inline blobs.
+        $this->persistDataUris($update);
+
         // Pages store per-page module instances; keep them, convert bare ids.
         if ($table === 'pages' && array_key_exists('modules', $update)) {
             $decoded = json_decode((string)$update['modules'], true);
@@ -166,17 +171,7 @@ class AdminController
             if (is_array($decoded)) {
                 foreach ($decoded as $entry) {
                     if (is_array($entry)) {
-                        // Module images are uploaded client-side as data URIs;
-                        // persist them so the front serves a cached file instead
-                        // of a huge inline base64 blob.
-                        foreach ($entry as $field => $value) {
-                            if ($field === 'image' && is_string($value) && strncmp($value, 'data:image/', 11) === 0) {
-                                $stored = $this->core->getFileManager()->uploadDataUri($value);
-                                if ($stored !== null) {
-                                    $entry[$field] = $stored;
-                                }
-                            }
-                        }
+                        $this->persistDataUris($entry);
                         $instances[] = $entry;
                     } elseif (is_numeric($entry)) {
                         $id = (int)$entry;
@@ -213,6 +208,22 @@ class AdminController
         }
         $this->core->getDatabase()->delete($table, (int)$_POST['id']);
         $this->core->redirect('index.php?p=' . urlencode($table));
+    }
+
+    // Recursively persist client-side uploaded image data URIs into the
+    // storage directory (downscaled WebP). Mutates the value in place.
+    private function persistDataUris(array &$value): void
+    {
+        foreach ($value as $k => &$v) {
+            if (is_array($v)) {
+                $this->persistDataUris($v);
+            } elseif (is_string($v) && strncmp($v, 'data:image/', 11) === 0) {
+                $stored = $this->core->getFileManager()->uploadDataUri($v);
+                if ($stored !== null) {
+                    $value[$k] = $stored;
+                }
+            }
+        }
     }
 
     private function slugify(string $text): string

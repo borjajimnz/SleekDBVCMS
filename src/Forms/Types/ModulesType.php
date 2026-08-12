@@ -4,10 +4,88 @@ namespace SleekDBVCMS\Forms\Types;
 
 class ModulesType extends AbstractType
 {
-    // All fields a module instance can carry (matches the "modules" collection).
-    private function moduleFields(): array
+    // All fields a module instance can carry. Templates in the "modules"
+    // collection do NOT store values for these — they only reference them via
+    // a schema (see typeFields()/fieldLabels()). Values live per page in
+    // pages.modules. 'type' is not editable on instances (it comes from the
+    // template), so it is excluded here.
+    public static function fieldNames(): array
     {
-        return ['title', 'type', 'subtitle', 'image', 'cta_text', 'cta_url', 'html', 'store', 'limit', 'item_id', 'form_id'];
+        return ['title', 'subtitle', 'image', 'cta_text', 'cta_url', 'html', 'store', 'limit', 'item_id', 'form_id', 'text', 'image_position', 'video_url', 'poster', 'features', 'stats', 'testimonials', 'faq', 'pricing', 'logos'];
+    }
+
+    // Human-readable labels for the schema picker (ModuleSchemaType).
+    public static function fieldLabels(): array
+    {
+        return [
+            'title' => 'Title',
+            'subtitle' => 'Subtitle',
+            'image' => 'Image',
+            'cta_text' => 'Button text',
+            'cta_url' => 'Button URL',
+            'html' => 'HTML',
+            'store' => 'Store',
+            'limit' => 'Limit',
+            'item_id' => 'Item ID',
+            'form_id' => 'Form',
+            'text' => 'Text',
+            'image_position' => 'Image position',
+            'video_url' => 'Video URL',
+            'poster' => 'Poster',
+            'features' => 'Features',
+            'stats' => 'Stats',
+            'testimonials' => 'Testimonials',
+            'faq' => 'FAQ',
+            'pricing' => 'Pricing',
+            'logos' => 'Logos',
+        ];
+    }
+
+    // Default schema per module type (single source of truth, mirrored to JS).
+    public static function typeFields(): array
+    {
+        return [
+            'hero' => ['title', 'image', 'subtitle', 'cta_text', 'cta_url'],
+            'text' => ['html'],
+            'html' => ['html'],
+            'store_list' => ['title', 'store', 'limit'],
+            'store_item' => ['title', 'store', 'item_id'],
+            'lead_form' => ['title', 'form_id'],
+            'cta' => ['title', 'subtitle', 'image', 'cta_text', 'cta_url'],
+            'split' => ['title', 'text', 'image', 'image_position', 'cta_text', 'cta_url'],
+            'features' => ['title', 'subtitle', 'features'],
+            'stats' => ['title', 'stats'],
+            'testimonials' => ['title', 'subtitle', 'testimonials'],
+            'faq' => ['title', 'subtitle', 'faq'],
+            'pricing' => ['title', 'subtitle', 'pricing'],
+            'logos' => ['title', 'logos'],
+            'video' => ['title', 'subtitle', 'video_url', 'poster'],
+        ];
+    }
+
+    // Decodes a template's stored schema (JSON array of field names) into a
+    // valid list of field names; falls back to the type's defaults.
+    public static function decodeSchema($raw, string $type): array
+    {
+        $schema = [];
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+            if (is_array($decoded)) {
+                $schema = $decoded;
+            } else {
+                $schema = array_map('trim', explode(',', $raw));
+            }
+        } elseif (is_array($raw)) {
+            $schema = $raw;
+        }
+        $valid = array_flip(self::fieldNames());
+        $schema = array_values(array_filter($schema, function ($f) use ($valid) {
+            return isset($valid[(string)$f]);
+        }));
+        if (empty($schema)) {
+            $schema = self::typeFields()[$type] ?? [];
+        }
+        return $schema;
     }
 
     // Maps each module field to the CMS form component used to edit it.
@@ -24,6 +102,16 @@ class ModulesType extends AbstractType
             'limit' => 'number',
             'item_id' => 'number',
             'form_id' => 'select',
+            'text' => 'rich_textarea',
+            'image_position' => 'select',
+            'video_url' => 'url',
+            'poster' => 'image',
+            'features' => 'repeater',
+            'stats' => 'repeater',
+            'testimonials' => 'repeater',
+            'faq' => 'repeater',
+            'pricing' => 'repeater',
+            'logos' => 'repeater',
         ];
     }
 
@@ -45,6 +133,7 @@ class ModulesType extends AbstractType
             'number' => new NumberType(),
             'select' => new SelectType(),
             'textarea' => new TextareaType(),
+            'repeater' => new RepeaterType(),
         ];
         $templates = [];
         $fieldTypeMap = [];
@@ -57,17 +146,26 @@ class ModulesType extends AbstractType
                         $formList[$formId] = $formTitle;
                     }
                     $attrs['options'] = $formList;
+                } elseif ($field === 'image_position') {
+                    $attrs['options'] = [
+                        'left' => 'Image left',
+                        'right' => 'Image right',
+                    ];
                 } else {
                     $storeList = array_values($storeOptions);
                     $attrs['options'] = array_combine($storeList, $storeList) ?: [];
                 }
+            }
+            if ($ft === 'repeater') {
+                $attrs['schema'] = RepeaterType::schemaForField($field);
             }
             $html = $typeInstances[$ft]->render($field, null, $attrs);
             $templates[$field] = preg_replace('/\s+(name|id)="[^"]*"/', '', $html);
             $fieldTypeMap[$field] = $ft;
         }
 
-        // Build the pool of templates (from the "modules" collection).
+        // Build the pool of templates (from the "modules" collection). Each
+        // template only carries a schema (which fields it exposes), not values.
         $pool = [];
         foreach ($allModules as $module) {
             $id = (int)($module['_id'] ?? 0);
@@ -75,18 +173,15 @@ class ModulesType extends AbstractType
                 continue;
             }
             $label = trim((string)($module['title'] ?? ''));
-            $fields = [];
-            foreach ($this->moduleFields() as $field) {
-                $fields[$field] = $module[$field] ?? '';
-            }
             $pool[$id] = [
                 'label' => $label !== '' ? $label : 'Module #' . $id,
                 'type' => (string)($module['type'] ?? ''),
-                'fields' => $fields,
+                'schema' => self::decodeSchema($module['fields'] ?? null, (string)($module['type'] ?? '')),
             ];
         }
 
-        // Normalize the stored value into per-page instances.
+        // Normalize the stored value into per-page instances. New instances
+        // start EMPTY (values are edited per page, never on the template).
         $raw = is_string($value) ? json_decode($value, true) : $value;
         if (!is_array($raw)) {
             $raw = [];
@@ -98,8 +193,10 @@ class ModulesType extends AbstractType
             } elseif (is_numeric($entry)) {
                 $id = (int)$entry;
                 if (isset($pool[$id])) {
-                    $inst = $pool[$id]['fields'];
-                    $inst['_module_id'] = $id;
+                    $inst = ['_module_id' => $id, 'type' => $pool[$id]['type']];
+                    foreach ($pool[$id]['schema'] as $field) {
+                        $inst[$field] = '';
+                    }
                     $instances[] = $inst;
                 }
             }
@@ -109,6 +206,7 @@ class ModulesType extends AbstractType
             . ' data-modules="' . htmlspecialchars(json_encode($pool)) . '"'
             . ' data-templates="' . htmlspecialchars(json_encode($templates), ENT_QUOTES) . '"'
             . ' data-field-types="' . htmlspecialchars(json_encode($fieldTypeMap), ENT_QUOTES) . '"'
+            . ' data-type-fields="' . htmlspecialchars(json_encode(self::typeFields()), ENT_QUOTES) . '"'
             . ' data-disabled="' . ($disabled ? '1' : '0') . '">';
 
         $html .= '<input type="hidden" name="' . htmlspecialchars($name) . '" class="modules-hidden" value="' . htmlspecialchars(json_encode($instances)) . '">';
@@ -133,14 +231,14 @@ class ModulesType extends AbstractType
             $html .= '</div>';
         }
 
-        $html .= '<script>' . $this->builderScript() . '</script>';
-        $html .= '<small class="block text-xs text-gray-500 dark:text-gray-400">Adding a module copies its values into this page. Use the pencil to edit its values for this page only (other pages are not affected).</small>';
+        $html .= '<script>' . $this->builderScript(json_encode(self::typeFields(), JSON_UNESCAPED_UNICODE)) . '</script>';
+        $html .= '<small class="block text-xs text-gray-500 dark:text-gray-400">Adding a module adds an empty instance. Use the pencil to fill its values for this page only (templates never store values; other pages are not affected).</small>';
         $html .= '</div>';
 
         return $html;
     }
 
-    private function builderScript(): string
+    private function builderScript(string $typeFieldsJson): string
     {
         return <<<'JS'
 (function () {
@@ -162,14 +260,8 @@ class ModulesType extends AbstractType
         var fieldTypes = {};
         try { fieldTypes = JSON.parse(builder.getAttribute('data-field-types') || '{}'); } catch (e) {}
 
-        var TYPE_FIELDS = {
-            hero: ['title', 'image', 'subtitle'],
-            text: ['html'],
-            html: ['html'],
-            store_list: ['title', 'store', 'limit'],
-            store_item: ['title', 'store', 'item_id'],
-            lead_form: ['title', 'form_id']
-        };
+        var TYPE_FIELDS = {};
+        try { TYPE_FIELDS = JSON.parse(builder.getAttribute('data-type-fields') || '{}'); } catch (e) {}
 
         var state = [];
         try { state = JSON.parse(hidden.value || '[]'); } catch (e) {}
@@ -284,11 +376,12 @@ class ModulesType extends AbstractType
         function openEditor(idx) {
             if (disabled) { return; }
             if (window.cmsRichText) { window.cmsRichText.destroy(editor); }
+            if (window.cmsRepeater) { window.cmsRepeater.destroy(editor); }
             editing = idx;
             var inst = state[idx];
             var m = pool[String(inst._module_id)] || {};
             var type = inst.type || m.type || 'text';
-            fields = TYPE_FIELDS[type] || [];
+            fields = (m.schema && m.schema.length) ? m.schema : (TYPE_FIELDS[type] || []);
             var h = '<div class="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"><span class="text-xs font-medium uppercase tracking-wide">Edit module values</span><span class="text-xs text-gray-400">' + esc(labelOf(inst)) + '</span></div>';
             h += '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4">';
             fields.forEach(function (f) { h += fieldHtml(f); });
@@ -300,6 +393,7 @@ class ModulesType extends AbstractType
             editor.innerHTML = h;
             bindValues();
             if (window.cmsRichText) { window.cmsRichText.init(editor); }
+            if (window.cmsRepeater) { window.cmsRepeater.init(editor); }
             editor.style.display = 'block';
             editor.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         }
@@ -307,6 +401,7 @@ class ModulesType extends AbstractType
         function closeEditor() {
             editing = null;
             if (window.cmsRichText) { window.cmsRichText.destroy(editor); }
+            if (window.cmsRepeater) { window.cmsRepeater.destroy(editor); }
             editor.style.display = 'none';
             editor.innerHTML = '';
         }
@@ -335,9 +430,9 @@ class ModulesType extends AbstractType
             if (!id) { return; }
             var t = pool[String(id)];
             if (!t) { return; }
-            var inst = {};
-            Object.keys(t.fields || {}).forEach(function (k) { inst[k] = t.fields[k]; });
-            inst._module_id = parseInt(id, 10);
+            var inst = { _module_id: parseInt(id, 10), type: t.type };
+            var schema = (t.schema && t.schema.length) ? t.schema : (TYPE_FIELDS[t.type] || []);
+            schema.forEach(function (k) { inst[k] = ''; });
             state.push(inst);
             addSelect.value = '';
             closeEditor();

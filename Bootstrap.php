@@ -140,97 +140,42 @@ if (empty($forms)) {
     $contactFormId = (int)($forms[0]['_id'] ?? 0);
 }
 
-// Seed default module templates (one per supported type) if the modules store is empty.
-// Each record is a module template that can be added to a page via the module builder.
-// The lead_form template references the contact form above via form_id.
+// Seed default module templates (one per supported type) into the modules
+// store. Templates are pure configuration: a title, a type, and the schema of
+// fields they expose (see ModulesType::typeFields()). They never carry values
+// — per-page instances start empty and are filled in the page editor. Seeding
+// is idempotent by title so existing installs pick up new templates without
+// duplicating the ones they already have.
 $cms->getDatabase()->store('modules');
-$modules = $cms->getDatabase()->findAll('modules');
-if (empty($modules)) {
-    $defaultModules = [
-        [
-            'title' => 'Hero Bienvenida',
-            'type' => 'hero',
-            'subtitle' => 'Bienvenido a nuestro sitio. Descubre todo lo que tenemos para ti.',
-            'image' => '',
-            'cta_text' => 'Ver más',
-            'cta_url' => '',
-            'html' => '',
-            'store' => '',
-            'limit' => '',
-            'item_id' => '',
-            'form_id' => '',
-        ],
-        [
-            'title' => 'Texto de presentación',
-            'type' => 'text',
-            'subtitle' => '',
-            'image' => '',
-            'cta_text' => '',
-            'cta_url' => '',
-            'html' => '<h3>Quiénes somos</h3><p>Este es un texto de ejemplo. Cuenta tu historia aquí.</p>',
-            'store' => '',
-            'limit' => '',
-            'item_id' => '',
-            'form_id' => '',
-        ],
-        [
-            'title' => 'Últimos posts',
-            'type' => 'store_list',
-            'subtitle' => '',
-            'image' => '',
-            'cta_text' => '',
-            'cta_url' => '',
-            'html' => '',
-            'store' => 'posts',
-            'limit' => '4',
-            'item_id' => '',
-            'form_id' => '',
-        ],
-        [
-            'title' => 'Post destacado',
-            'type' => 'store_item',
-            'subtitle' => '',
-            'image' => '',
-            'cta_text' => '',
-            'cta_url' => '',
-            'html' => '',
-            'store' => 'posts',
-            'limit' => '',
-            'item_id' => '',
-            'form_id' => '',
-        ],
-        [
-            'title' => 'HTML libre',
-            'type' => 'html',
-            'subtitle' => '',
-            'image' => '',
-            'cta_text' => '',
-            'cta_url' => '',
-            'html' => '<div class="grid grid-cols-3 gap-4">' .
-                '<div class="rounded-lg bg-gray-100 dark:bg-gray-800 p-4 text-center"><b>100+</b><p class="text-xs">clientes</p></div>' .
-                '<div class="rounded-lg bg-gray-100 dark:bg-gray-800 p-4 text-center"><b>24/7</b><p class="text-xs">soporte</p></div>' .
-                '<div class="rounded-lg bg-gray-100 dark:bg-gray-800 p-4 text-center"><b>10</b><p class="text-xs">años</p></div>' .
-                '</div>',
-            'store' => '',
-            'limit' => '',
-            'item_id' => '',
-            'form_id' => '',
-        ],
-        [
-            'title' => 'Formulario de contacto',
-            'type' => 'lead_form',
-            'subtitle' => 'Rellena el formulario y te responderemos lo antes posible.',
-            'image' => '',
-            'cta_text' => '',
-            'cta_url' => '',
-            'html' => '',
-            'store' => '',
-            'limit' => '',
-            'item_id' => '',
-            'form_id' => (string)$contactFormId,
-        ],
-    ];
-    foreach ($defaultModules as $module) {
-        $cms->getDatabase()->insert('modules', $module);
+$defaultModules = [
+    ['title' => 'Hero Bienvenida', 'type' => 'hero', 'fields' => json_encode(['title', 'image', 'subtitle', 'cta_text', 'cta_url'])],
+    ['title' => 'Texto de presentación', 'type' => 'text', 'fields' => json_encode(['html'])],
+    ['title' => 'Últimos posts', 'type' => 'store_list', 'fields' => json_encode(['title', 'store', 'limit'])],
+    ['title' => 'Post destacado', 'type' => 'store_item', 'fields' => json_encode(['title', 'store', 'item_id'])],
+    ['title' => 'HTML libre', 'type' => 'html', 'fields' => json_encode(['html'])],
+    ['title' => 'Formulario de contacto', 'type' => 'lead_form', 'fields' => json_encode(['title', 'form_id'])],
+    ['title' => 'Llamada a la acción', 'type' => 'cta', 'fields' => json_encode(['title', 'subtitle', 'image', 'cta_text', 'cta_url'])],
+    ['title' => 'Texto + Imagen', 'type' => 'split', 'fields' => json_encode(['title', 'text', 'image', 'image_position', 'cta_text', 'cta_url'])],
+    ['title' => 'Características', 'type' => 'features', 'fields' => json_encode(['title', 'subtitle', 'features'])],
+    ['title' => 'Cifras clave', 'type' => 'stats', 'fields' => json_encode(['title', 'stats'])],
+    ['title' => 'Testimonios', 'type' => 'testimonials', 'fields' => json_encode(['title', 'subtitle', 'testimonials'])],
+    ['title' => 'Preguntas frecuentes', 'type' => 'faq', 'fields' => json_encode(['title', 'subtitle', 'faq'])],
+    ['title' => 'Planes de precios', 'type' => 'pricing', 'fields' => json_encode(['title', 'subtitle', 'pricing'])],
+    ['title' => 'Confían en nosotros', 'type' => 'logos', 'fields' => json_encode(['title', 'logos'])],
+    ['title' => 'Video promocional', 'type' => 'video', 'fields' => json_encode(['title', 'subtitle', 'video_url', 'poster'])],
+];
+
+$existingTitles = [];
+foreach ($cms->getDatabase()->findAll('modules') as $existing) {
+    $existingTitles[trim((string)($existing['title'] ?? ''))] = true;
+}
+foreach ($defaultModules as $module) {
+    $title = trim((string)($module['title'] ?? ''));
+    if ($title !== '' && isset($existingTitles[$title])) {
+        continue;
+    }
+    $inserted = $cms->getDatabase()->insert('modules', $module);
+    if (is_array($inserted)) {
+        $existingTitles[trim((string)($inserted['title'] ?? $title))] = true;
     }
 }

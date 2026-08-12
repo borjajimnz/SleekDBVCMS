@@ -37,7 +37,13 @@
                     @php $img = front_image_of($frontConfig, $row, $fields); @endphp
                     <a href="{{ front_item_url($store, $row['_id']) }}" class="group bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                         @if ($img)
-                            <div class="aspect-video bg-gray-100 dark:bg-gray-800 overflow-hidden"><img src="{{ $img }}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform" alt=""></div>
+                            <div class="aspect-video bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                                @if ($loop->first)
+                                    <img src="{{ $img }}" fetchpriority="high" decoding="async" class="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="">
+                                @else
+                                    <img src="{{ $img }}" loading="lazy" decoding="async" class="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="">
+                                @endif
+                            </div>
                         @endif
                         <div class="p-4">
                             @php $titleShown = false; @endphp

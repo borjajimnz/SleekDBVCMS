@@ -200,5 +200,181 @@ function cms_store_link(string $name, ?string $current): string
             window.cmsRichText.init(document);
         });
     </script>
+    <script>
+        // Repeater list builder: renders and syncs the generic JSON list fields
+        // (RepeaterType). Supports both static rows on the page and repeaters
+        // injected dynamically by the ModulesType inline editor via init(scope).
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        }
+        window.cmsRepeater = {
+            _renderRow: function (item, schema, i, disabled) {
+                var cls = 'w-full px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed';
+                var clsSm = cls + ' text-xs';
+                var h = '<div class="repeater-row p-4" data-idx="' + i + '">';
+                h += '<div class="flex items-start gap-2">';
+                h += '<div class="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">';
+                schema.forEach(function (f) {
+                    var v = item[f.name] != null ? item[f.name] : '';
+                    var name = 'rp-' + f.name;
+                    if (f.type === 'textarea') {
+                        h += '<div class="' + (f.name === 'answer' || f.name === 'features' || f.name === 'quote' ? 'sm:col-span-2' : '') + '"><label class="block text-[10px] uppercase tracking-wide text-gray-400 mb-0.5">' + esc(f.label) + '</label>'
+                            + '<textarea rows="2" class="' + name + ' ' + clsSm + '" ' + (disabled ? 'disabled' : '') + '>' + esc(v) + '</textarea></div>';
+                    } else if (f.type === 'checkbox') {
+                        h += '<div class="flex items-end"><label class="flex items-center gap-1.5 pb-1.5 text-xs text-gray-500 dark:text-gray-400"><input type="checkbox" class="' + name + ' h-4 w-4 rounded border-gray-300 dark:border-gray-700 text-blue-600 dark:bg-gray-800" ' + (v ? 'checked' : '') + ' ' + (disabled ? 'disabled' : '') + '> ' + esc(f.label) + '</label></div>';
+                    } else if (f.type === 'image') {
+                        h += '<div class="' + (f.name === 'image' ? 'sm:col-span-2' : '') + '"><label class="block text-[10px] uppercase tracking-wide text-gray-400 mb-0.5">' + esc(f.label) + '</label>'
+                            + '<div class="flex gap-1.5"><input type="text" class="' + name + ' flex-1 ' + clsSm + '" value="' + esc(v) + '" placeholder="/storage/... or https://..." ' + (disabled ? 'disabled' : '') + '>'
+                            + (disabled ? '' : '<input type="file" accept="image/*" class="rp-file ' + clsSm + '" style="max-width:140px">')
+                            + '</div>'
+                            + '<div class="rp-preview mt-1"></div></div>';
+                    } else if (f.type === 'select') {
+                        var opts = '<option value="">—</option>';
+                        (f.options || []).forEach(function (o) {
+                            opts += '<option value="' + esc(o) + '"' + (String(v) === String(o) ? ' selected' : '') + '>' + esc(o) + '</option>';
+                        });
+                        h += '<div><label class="block text-[10px] uppercase tracking-wide text-gray-400 mb-0.5">' + esc(f.label) + '</label>'
+                            + '<select class="' + name + ' ' + clsSm + '" ' + (disabled ? 'disabled' : '') + '>' + opts + '</select></div>';
+                    } else {
+                        h += '<div><label class="block text-[10px] uppercase tracking-wide text-gray-400 mb-0.5">' + esc(f.label) + '</label>'
+                            + '<input type="' + (f.type === 'url' ? 'url' : 'text') + '" class="' + name + ' ' + clsSm + '" value="' + esc(v) + '" ' + (disabled ? 'disabled' : '') + '></div>';
+                    }
+                });
+                h += '</div>';
+                if (!disabled) {
+                    h += '<button type="button" class="rp-remove p-1 rounded text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50" title="Remove item"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>';
+                }
+                h += '</div></div>';
+                return h;
+            },
+            _bind: function (b) {
+                var self = this;
+                var hidden = b.querySelector('.repeater-hidden');
+                var list = b.querySelector('.repeater-list');
+                var empty = b.querySelector('.repeater-empty');
+                var addBtn = b.querySelector('.repeater-add');
+                var disabled = b.getAttribute('data-disabled') === '1';
+                var schema = [];
+                try { schema = JSON.parse(b.getAttribute('data-schema') || '[]'); } catch (e) {}
+                var state = [];
+                try { state = JSON.parse(hidden.value || '[]'); } catch (e) {}
+                if (!Array.isArray(state)) { state = []; }
+
+                function syncHidden() { hidden.value = JSON.stringify(state); }
+
+                function render() {
+                    var html = '';
+                    state.forEach(function (item, i) { html += self._renderRow(item, schema, i, disabled); });
+                    list.innerHTML = html;
+                    list.querySelectorAll('.repeater-row').forEach(function (row) {
+                        self._bindRowImages(row);
+                    });
+                    if (empty) { empty.style.display = state.length ? 'none' : ''; }
+                    syncHidden();
+                }
+
+                function readRow(row) {
+                    var item = state[parseInt(row.getAttribute('data-idx'), 10)];
+                    if (!item) { return; }
+                    schema.forEach(function (f) {
+                        var el = row.querySelector('.rp-' + f.name);
+                        if (!el) { return; }
+                        if (f.type === 'checkbox') {
+                            item[f.name] = el.checked;
+                        } else if (f.type === 'textarea' || f.type === 'text') {
+                            item[f.name] = el.value;
+                        } else if (f.type === 'select') {
+                            item[f.name] = el.value;
+                        } else {
+                            item[f.name] = el.value;
+                        }
+                    });
+                }
+
+                function refreshRow(row) {
+                    readRow(row);
+                    syncHidden();
+                }
+
+                list.addEventListener('input', function (e) {
+                    var row = e.target.closest('.repeater-row');
+                    if (row) { refreshRow(row); }
+                });
+                list.addEventListener('change', function (e) {
+                    var row = e.target.closest('.repeater-row');
+                    if (!row) { return; }
+                    var file = e.target.classList.contains('rp-file') ? e.target.files[0] : null;
+                    if (file) {
+                        var reader = new FileReader();
+                        reader.onload = function () {
+                            var input = row.querySelector('.rp-image');
+                            if (!input) { return; }
+                            input.value = reader.result;
+                            self._bindRowImages(row);
+                            refreshRow(row);
+                        };
+                        reader.readAsDataURL(file);
+                        return;
+                    }
+                    refreshRow(row);
+                });
+                list.addEventListener('click', function (e) {
+                    var btn = e.target.closest('.rp-remove');
+                    if (!btn) { return; }
+                    var row = btn.closest('.repeater-row');
+                    state.splice(parseInt(row.getAttribute('data-idx'), 10), 1);
+                    render();
+                });
+
+                if (addBtn) {
+                    addBtn.addEventListener('click', function () {
+                        var item = {};
+                        schema.forEach(function (f) {
+                            item[f.name] = f.type === 'checkbox' ? false : '';
+                        });
+                        state.push(item);
+                        render();
+                    });
+                }
+
+                render();
+            },
+            _bindRowImages: function (row) {
+                var input = row.querySelector('.rp-image');
+                var preview = row.querySelector('.rp-preview');
+                if (!preview) { return; }
+                preview.innerHTML = '';
+                if (input && input.value) {
+                    var img = document.createElement('img');
+                    img.src = input.value;
+                    img.loading = 'lazy';
+                    img.className = 'mt-1 rounded border border-gray-200 dark:border-gray-800 max-h-16';
+                    preview.appendChild(img);
+                }
+            },
+            init: function (scope) {
+                var self = this;
+                scope = scope || document;
+                scope.querySelectorAll('.repeater-builder').forEach(function (b) {
+                    if (b.getAttribute('data-repeater') === '1') { return; }
+                    b.setAttribute('data-repeater', '1');
+                    self._bind(b);
+                });
+            },
+            destroy: function (scope) {
+                scope = scope || document;
+                scope.querySelectorAll('.repeater-builder').forEach(function (b) {
+                    b.removeAttribute('data-repeater');
+                    var list = b.querySelector('.repeater-list');
+                    if (list) { list.innerHTML = ''; }
+                });
+            }
+        };
+        document.addEventListener('DOMContentLoaded', function () {
+            window.cmsRepeater.init(document);
+        });
+    </script>
 </body>
 </html>

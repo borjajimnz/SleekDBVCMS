@@ -65,6 +65,38 @@ function front_excerpt(string $text, int $len = 120): string
     return mb_substr($text, 0, $len) . '…';
 }
 
+/**
+ * Inject width/height (and decoding="async") into <img> tags pointing at local
+ * /storage/ files. Without dimensions the browser can't reserve space, so lazy
+ * images snap open on load and push the layout down (CLS). Dimensions are read
+ * once per file and cached for the request.
+ */
+function front_enrich_images(string $html): string
+{
+    static $dims = [];
+    return preg_replace_callback('/<img\s+([^>]*)>/i', function ($m) use (&$dims) {
+        $attrs = $m[1];
+        if (!preg_match('/\bsrc="(\/storage\/[^"]+)"/', $attrs, $sm)
+            || preg_match('/\b(?:width|height)=/i', $attrs)) {
+            return $m[0];
+        }
+        $src = $sm[1];
+        if (!array_key_exists($src, $dims)) {
+            // URL path /storage/... maps to public/storage/... (symlink).
+            $info = @getimagesize(dirname(__DIR__) . '/public' . $src);
+            $dims[$src] = is_array($info) ? [$info[0], $info[1]] : null;
+        }
+        if (!$dims[$src]) {
+            return $m[0];
+        }
+        $extra = sprintf(' width="%d" height="%d"', $dims[$src][0], $dims[$src][1]);
+        if (!preg_match('/\bdecoding=/i', $attrs)) {
+            $extra .= ' decoding="async"';
+        }
+        return '<img ' . $attrs . $extra . '>';
+    }, $html);
+}
+
 function front_richtext(?string $html): string
 {
     $html = trim((string)$html);
@@ -80,7 +112,7 @@ function front_richtext(?string $html): string
         }
         return implode("\n", $out);
     }
-    return $html;
+    return front_enrich_images($html);
 }
 
 function front_store_url(string $name): string
@@ -210,7 +242,7 @@ foreach ($allowedStores as $name) {
 function front_render_module(array $module, array $ctx): string
 {
     $type = $module['type'] ?? 'text';
-    $allowed = ['hero', 'text', 'html', 'store_list', 'store_item', 'lead_form'];
+    $allowed = ['hero', 'text', 'html', 'store_list', 'store_item', 'lead_form', 'cta', 'split', 'features', 'stats', 'testimonials', 'faq', 'pricing', 'logos', 'video'];
     if (!in_array($type, $allowed, true)) {
         $type = 'text';
     }

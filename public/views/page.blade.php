@@ -18,6 +18,22 @@
         $modules = [];
         foreach ($moduleRefs as $moduleEntry) {
             if (is_array($moduleEntry)) {
+                if (empty($moduleEntry['type']) && !empty($moduleEntry['_module_id'])) {
+                    $moduleId = (int)$moduleEntry['_module_id'];
+                    try {
+                        $template = $cms->getDatabase()->findById('modules', $moduleId);
+                    } catch (\Throwable $e) {
+                        $template = null;
+                    }
+                    if (is_array($template)) {
+                        $moduleEntry['type'] = (string)($template['type'] ?? 'text');
+                        foreach (\SleekDBVCMS\Forms\Types\ModulesType::decodeSchema($template['fields'] ?? null, $moduleEntry['type']) as $field) {
+                            if (!array_key_exists($field, $moduleEntry)) {
+                                $moduleEntry[$field] = '';
+                            }
+                        }
+                    }
+                }
                 $modules[] = $moduleEntry;
                 continue;
             }

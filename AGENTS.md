@@ -91,7 +91,7 @@ There is **no test suite** — verify by HTTP calls (see Verify). The admin UI's
     }
   }
   ```
-- Field types: `text`, `textarea`, `rich_textarea`, `password`, `image`, `color`, `url`, `number`, `decimal`, `email`, `datetime`, `date`, `checkbox`, `select`, `modules`, `form_fields`, and `join` blocks.
+- Field types: `text`, `textarea`, `rich_textarea`, `password`, `image`, `color`, `url`, `number`, `decimal`, `email`, `datetime`, `date`, `checkbox`, `select`, `modules`, `form_fields`, `repeater`, and `join` blocks.
 - Editable at runtime from the dashboard (writes `.default_stores`).
 - `rich_textarea` renders a **Quill WYSIWYG editor** in the admin (CDN, `window.cmsRichText.init()` in `src/Views/layout.php` upgrades `.rich-editor` textareas; synced back to the hidden textarea on submit). The module builder also initializes Quill for dynamically-injected editors. On the front, rich text is rendered via `front_richtext()` (`public/index.php`) inside `.prose-html` styling (`public/views/layout.blade.php`); plain text is auto-wrapped into paragraphs.
 
@@ -134,10 +134,12 @@ There is **no test suite** — verify by HTTP calls (see Verify). The admin UI's
 - System + protected store. Fields: `title`, `slug` (auto-generated from title when left empty), `published` (checkbox), `show_in_menu`, `menu_order`, `is_home`, `seo_title`, `seo_description`, `modules`.
 - `modules` is a custom form type (`src/Forms/Types/ModulesType.php`). Nav is generated from `pages` where `show_in_menu=1`, ordered by `menu_order`. Front routes pages by slug; drafts are 404 unless `?preview=1` with an admin session.
 
-### `modules` store (templates)
-- A normal collection (system store, records deletable) where each record is a **module template**. Fields (`ConfigurationService::DEFAULT_MODULES_DEF`):
-  `title` (text), `type` (select: `hero` | `text` | `store_list` | `html` | `store_item` | `lead_form`), `subtitle` (text), `image` (image), `cta_text` (text), `cta_url` (url), `html` (rich_textarea), `store` (select of available stores), `limit` (number), `item_id` (number), plus `lead_form` config: `fields` (JSON), `notify_to` (text), `notify_cc` (text), `button_text` (text), `success_message` (text).
-- In `form.php` the `modules` store's `select` fields get options: `type` → the six types; `store` → current store names.
+### `modules` store (templates = pure configuration, no values)
+- A normal collection (system store, records deletable) where each record is a **module template**. Templates hold **only configuration** — never values. Fields (`ConfigurationService::DEFAULT_MODULES_DEF`):
+  `title` (text), `type` (select: `hero` | `text` | `store_list` | `html` | `store_item` | `lead_form` | `cta` | `split` | `features` | `stats` | `testimonials` | `faq` | `pricing` | `logos` | `video`), and `fields` (`module_schema`, a checkbox picker of the field names the template exposes, stored as JSON array).
+- The set of fields each module type uses is defined once in `ModulesType::typeFields()` (PHP, mirrored to the builder JS via `data-type-fields`). A template's `fields` schema overrides that default; when empty/missing the type defaults apply (`ModulesType::decodeSchema()`).
+- `ModulesType` also exposes `fieldNames()` (the full list of fields a module instance can carry) and `fieldLabels()` (for the schema picker). No `html`, `item_id`, `image`, etc. values exist on templates anymore.
+- In `form.php` the `modules` store's `type` select gets options for the fifteen types; the `fields` field renders via `ModuleSchemaType` (checkbox grid synced to a hidden JSON input).
 
 ### `forms` store (form templates) + `lead_form` module
 - A `lead_form` module adds a contact form to a page and **references** a form template from the **`forms`** store via `form_id` (like `store_item` references `item_id`). The module does **not** carry the form's fields/notify config — the form entity does (module fallback fields are in `DEFAULT_MODULES_DEF`).
@@ -152,9 +154,10 @@ There is **no test suite** — verify by HTTP calls (see Verify). The admin UI's
 - SMTP settings live in `storage/settings.json` (edited from the dashboard "Email notifications" section); `EmailService` (`src/Services/EmailService.php`) is a raw-socket SMTP client (STARTTLS/SSL/AUTH LOGIN). When `smtp_enabled` is off, leads are only stored (no email).
 
 ### `pages.modules` = per-page instances (NOT ids)
-- When a template is added to a page, the builder **copies its values** into the page. `pages.modules` stores a JSON array of **instance objects**, each `{"_module_id":<template id>, "type":"...", ...field values}`.
+- Templates never hold values. When a template is added to a page, the builder creates an **empty instance** and copies only the template's **schema** (which fields apply). `pages.modules` stores a JSON array of **instance objects**, each `{"_module_id":<template id>, "type":"...", ...field values}`. Values are entered per page.
 - Editing an instance's values affects **only that page** — the template in the `modules` store is never modified.
-- The builder (vanilla JS in `ModulesType.php`): dropdown + "Add" clones a template into the page list; a pencil button opens an inline editor showing only the fields relevant to the instance `type`; arrows reorder; ✕ removes; a hidden input `modules-hidden` holds the JSON and is what gets POSTed.
+- The builder (vanilla JS in `ModulesType.php`): dropdown + "Add" clones a template's schema into the page list with empty values; a pencil button opens an inline editor showing only the schema fields for that instance (falling back to the type defaults); arrows reorder; ✕ removes; a hidden input `modules-hidden` holds the JSON and is what gets POSTed.
+- `page.blade.php` hydrates legacy `{_module_id}`-only instances (no type/values) from their template via `ModulesType::decodeSchema()` so old pages keep rendering.
 - Supported types (rendered by `front_render_module()` in `public/index.php`):
   - `hero` — `title`, `subtitle`, `image`, `cta_text`, `cta_url`
   - `text` — `html` (rich HTML)
@@ -162,10 +165,19 @@ There is **no test suite** — verify by HTTP calls (see Verify). The admin UI's
   - `html` — `html` (free HTML/iframe)
   - `store_item` — `store`, `item_id`, `title` (featured single record; reads `item_id`, not `id`)
   - `lead_form` — `title`, `form_id` (renders the referenced form from the `forms` store)
+  - `cta` — `title`, `subtitle`, `image` (background), `cta_text`, `cta_url` (full-width band)
+  - `split` — `title`, `text` (rich), `image`, `image_position`, `cta_text`, `cta_url` (two columns)
+  - `features` — `title`, `subtitle`, `features` (repeater: icon/title/text)
+  - `stats` — `title`, `stats` (repeater: value/label)
+  - `testimonials` — `title`, `subtitle`, `testimonials` (repeater: quote/author/role/image)
+  - `faq` — `title`, `subtitle`, `faq` (repeater: question/answer; native `<details>` accordion)
+  - `pricing` — `title`, `subtitle`, `pricing` (repeater: name/price/period/features/cta/highlight)
+  - `logos` — `title`, `logos` (repeater: image/name/url)
+  - `video` — `title`, `subtitle`, `video_url` (YouTube/Vimeo/mp4), `poster`
 - Module rendering is Blade: `front_render_module()` delegates to `public/views/modules/<type>.blade.php`, each receiving `module` + `ctx`.
-- `public/views/page.blade.php` resolves each `modules` entry: instance objects (arrays) and legacy inline module arrays are passed straight to `front_render_module()`; bare numeric ids are looked up in the `modules` store (backward compat).
-- On first boot, `Bootstrap.php` seeds default module templates (one per supported type: `hero`, `text`, `store_list`, `store_item`, `html`, `lead_form`) into the `modules` store when it's empty — the `lead_form` template references the default contact form seeded in the `forms` store. Existing records are untouched (only seeds when empty).
-- `AdminController::handleStoreUpdate` sanitizes `pages.modules`: keeps instance arrays as-is and converts bare numeric ids to `{"_module_id": N}`. Module images arrive as base64 data URIs (client-side FileReader) — on save they are persisted via `FileManager::uploadDataUri()` (downscaled WebP under `/storage/FY/`) so the front serves a cached file instead of a multi-MB inline blob.
+- `public/views/page.blade.php` resolves each `modules` entry: instance objects (arrays) are passed straight to `front_render_module()`; bare numeric ids are looked up in the `modules` store (backward compat).
+- `Bootstrap.php` seeds default module templates (one per supported type, idempotent by title — existing installs pick up new templates without duplicating old ones). Seeds carry only `title`/`type`/`fields`; the `lead_form` template's schema exposes `form_id` so instances reference a form template from the `forms` store.
+- `AdminController::handleStoreUpdate` sanitizes `pages.modules`: keeps instance arrays as-is and converts bare numeric ids to `{"_module_id": N}`. Client-side image data URIs (module images and repeater images) are persisted via `FileManager::uploadDataUri()` (downscaled WebP under `/storage/FY/`) by the recursive `persistDataUris()` helper, so the front serves cached files instead of multi-MB inline blobs.
 
 ## SleekDB API gotchas
 

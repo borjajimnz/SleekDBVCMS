@@ -20,21 +20,14 @@ class ConfigurationService
         'modules' => 'modules',
     ];
 
-    // Fields of a module template record (the "modules" collection).
-    // A lead_form module references a form template from the "forms" store
-    // via `form_id` (like store_item references `item_id`).
+    // Fields of a module template record (the "modules" collection). Templates
+    // only hold configuration: a title, the type, and the schema of fields the
+    // template exposes (JSON array of field names). They never store values
+    // (html, item_id, images, ...) — per-page instances in pages.modules do.
     private const DEFAULT_MODULES_DEF = [
         'title' => 'text',
         'type' => 'select',
-        'subtitle' => 'text',
-        'image' => 'image',
-        'cta_text' => 'text',
-        'cta_url' => 'url',
-        'html' => 'rich_textarea',
-        'store' => 'select',
-        'limit' => 'number',
-        'item_id' => 'number',
-        'form_id' => 'select',
+        'fields' => 'module_schema',
     ];
 
     // Typical blog post record (the "posts" collection).

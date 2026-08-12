@@ -19,6 +19,8 @@ use SleekDBVCMS\Forms\Types\DateType;
 use SleekDBVCMS\Forms\Types\DatetimeType;
 use SleekDBVCMS\Forms\Types\ModulesType;
 use SleekDBVCMS\Forms\Types\FormFieldsType;
+use SleekDBVCMS\Forms\Types\RepeaterType;
+use SleekDBVCMS\Forms\Types\ModuleSchemaType;
 
 class FormBuilder
 {
@@ -65,6 +67,8 @@ class FormBuilder
             'datetime' => new DatetimeType(),
             'modules' => new ModulesType(),
             'form_fields' => new FormFieldsType(),
+            'repeater' => new RepeaterType(),
+            'module_schema' => new ModuleSchemaType(),
         ];
     }
 

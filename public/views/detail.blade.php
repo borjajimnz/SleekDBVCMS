@@ -10,13 +10,13 @@
             <span class="mx-1">/</span>
             <a href="{{ front_store_url($storeName) }}" class="hover:underline">{{ front_label($frontConfig, $storeName) }}</a>
             <span class="mx-1">/</span>
-            <span>#{{ (int)$row['_id'] }}</span>
+            <span>{{ $row['title'] ?? $row['name'] ?? '#' . (int)$row['_id'] }}</span>
         </nav>
 
         <article class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
             @if ($img)
                 <div class="aspect-video md:aspect-[21/9] bg-gray-100 dark:bg-gray-800 overflow-hidden">
-                    <img src="{{ $img }}" class="w-full h-full object-cover" alt="">
+                    <img src="{{ $img }}" fetchpriority="high" decoding="async" class="w-full h-full object-cover" alt="">
                 </div>
             @endif
 
