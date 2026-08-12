@@ -10,12 +10,51 @@ class ModulesType extends AbstractType
         return ['title', 'type', 'subtitle', 'image', 'cta_text', 'cta_url', 'html', 'store', 'limit', 'item_id'];
     }
 
+    // Maps each module field to the CMS form component used to edit it.
+    private function fieldTypes(): array
+    {
+        return [
+            'title' => 'text',
+            'subtitle' => 'text',
+            'image' => 'image',
+            'cta_text' => 'text',
+            'cta_url' => 'url',
+            'html' => 'rich_textarea',
+            'store' => 'select',
+            'limit' => 'number',
+            'item_id' => 'number',
+        ];
+    }
+
     public function render(string $name, $value = null, array $attributes = []): string
     {
         $disabled = !empty($attributes['disabled']);
         $allModules = $attributes['options'] ?? [];
         $storeOptions = $attributes['stores'] ?? [];
         unset($attributes['options'], $attributes['stores']);
+
+        // Pre-render each editable field with the real CMS component.
+        // name/id are stripped so inline module inputs never collide with the page form.
+        $typeInstances = [
+            'text' => new TextType(),
+            'image' => new ImageType(),
+            'url' => new UrlType(),
+            'rich_textarea' => new RichTextareaType(),
+            'number' => new NumberType(),
+            'select' => new SelectType(),
+        ];
+        $templates = [];
+        $fieldTypeMap = [];
+        foreach ($this->fieldTypes() as $field => $ft) {
+            $attrs = [];
+            if ($ft === 'select') {
+                $storeList = array_values($storeOptions);
+                $attrs['options'] = array_combine($storeList, $storeList) ?: [];
+            }
+            $html = $typeInstances[$ft]->render($field, null, $attrs);
+            $templates[$field] = preg_replace('/\s+(name|id)="[^"]*"/', '', $html);
+            $fieldTypeMap[$field] = $ft;
+        }
 
         // Build the pool of templates (from the "modules" collection).
         $pool = [];
@@ -57,7 +96,8 @@ class ModulesType extends AbstractType
 
         $html = '<div class="modules-builder space-y-3"'
             . ' data-modules="' . htmlspecialchars(json_encode($pool)) . '"'
-            . ' data-stores="' . htmlspecialchars(json_encode(array_values($storeOptions))) . '"'
+            . ' data-templates="' . htmlspecialchars(json_encode($templates), ENT_QUOTES) . '"'
+            . ' data-field-types="' . htmlspecialchars(json_encode($fieldTypeMap), ENT_QUOTES) . '"'
             . ' data-disabled="' . ($disabled ? '1' : '0') . '">';
 
         $html .= '<input type="hidden" name="' . htmlspecialchars($name) . '" class="modules-hidden" value="' . htmlspecialchars(json_encode($instances)) . '">';
@@ -106,11 +146,13 @@ class ModulesType extends AbstractType
 
         var pool = {};
         try { pool = JSON.parse(builder.getAttribute('data-modules') || '{}'); } catch (e) {}
-        var stores = [];
-        try { stores = JSON.parse(builder.getAttribute('data-stores') || '[]'); } catch (e) {}
+        var templates = {};
+        try { templates = JSON.parse(builder.getAttribute('data-templates') || '{}'); } catch (e) {}
+        var fieldTypes = {};
+        try { fieldTypes = JSON.parse(builder.getAttribute('data-field-types') || '{}'); } catch (e) {}
 
         var TYPE_FIELDS = {
-            hero: ['title', 'subtitle', 'image', 'cta_text', 'cta_url'],
+            hero: ['title', 'image', 'subtitle'],
             text: ['html'],
             html: ['html'],
             store_list: ['title', 'store', 'limit'],
@@ -166,29 +208,66 @@ class ModulesType extends AbstractType
             syncHidden();
         }
 
-        function fieldHtml(f, val) {
-            var v = val == null ? '' : val;
+        function fieldHtml(f) {
+            var tpl = templates[f] || '';
+            if (!tpl) { return ''; }
+            var type = fieldTypes[f] || 'text';
             var lbl = f === 'image' ? 'image url' : f;
-            var base = 'class="m-field w-full px-2 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" data-field="' + f + '"';
             var h = '<label class="block"><span class="block text-xs mb-1 text-gray-500 dark:text-gray-400">' + esc(lbl) + '</span>';
-            if (f === 'store') {
-                h += '<select ' + base + '><option value="">--</option>';
-                (stores || []).forEach(function (s) {
-                    h += '<option value="' + esc(s) + '"' + (String(s) === String(v) ? ' selected' : '') + '>' + esc(s) + '</option>';
-                });
-                h += '</select>';
-            } else if (f === 'html') {
-                h += '<textarea ' + base + ' rows="4">' + esc(v) + '</textarea>';
-            } else if (f === 'limit' || f === 'item_id') {
-                h += '<input type="number" ' + base + ' value="' + esc(v) + '">';
-            } else {
-                h += '<input type="text" ' + base + ' value="' + esc(v) + '">';
-            }
+            h += '<div data-field="' + f + '" data-type="' + type + '">' + tpl + '</div>';
             h += '</label>';
             return h;
         }
 
+        function updateImagePreview(container, url) {
+            var img = container.querySelector('img[src]');
+            if (!url) {
+                if (img) { img.remove(); }
+                return;
+            }
+            if (img) { img.src = url; return; }
+            var wrap = document.createElement('div');
+            wrap.className = 'mt-2';
+            img = document.createElement('img');
+            img.src = url;
+            img.loading = 'lazy';
+            img.className = 'rounded-lg border border-gray-200 dark:border-gray-800 max-w-[200px]';
+            wrap.appendChild(img);
+            container.appendChild(wrap);
+        }
+
+        function bindValues() {
+            fields.forEach(function (f) {
+                var c = editor.querySelector('[data-field="' + f + '"]');
+                if (!c) { return; }
+                var type = c.getAttribute('data-type') || 'text';
+                var el = c.querySelector('input, select, textarea');
+                if (!el) { return; }
+                var v = state[editing][f] == null ? '' : state[editing][f];
+                if (type === 'image') {
+                    el.value = String(v);
+                    updateImagePreview(c, v);
+                    var fileInput = c.querySelector('input[type="file"]');
+                    if (fileInput) {
+                        fileInput.onchange = function () {
+                            var file = fileInput.files && fileInput.files[0];
+                            if (!file) { return; }
+                            var reader = new FileReader();
+                            reader.onload = function () {
+                                el.value = reader.result;
+                                updateImagePreview(c, reader.result);
+                            };
+                            reader.readAsDataURL(file);
+                        };
+                    }
+                } else {
+                    el.value = v;
+                }
+            });
+        }
+
         var editing = null;
+        var fields = [];
 
         function openEditor(idx) {
             if (disabled) { return; }
@@ -196,16 +275,17 @@ class ModulesType extends AbstractType
             var inst = state[idx];
             var m = pool[String(inst._module_id)] || {};
             var type = inst.type || m.type || 'text';
-            var fields = TYPE_FIELDS[type] || [];
+            fields = TYPE_FIELDS[type] || [];
             var h = '<div class="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"><span class="text-xs font-medium uppercase tracking-wide">Edit module values</span><span class="text-xs text-gray-400">' + esc(labelOf(inst)) + '</span></div>';
             h += '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4">';
-            fields.forEach(function (f) { h += fieldHtml(f, inst[f]); });
+            fields.forEach(function (f) { h += fieldHtml(f); });
             h += '</div>';
             h += '<div class="px-4 pb-4 flex gap-2 justify-end">'
                 + '<button type="button" class="m-save px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors">Save</button>'
                 + '<button type="button" class="m-cancel px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-800">Cancel</button>'
                 + '</div>';
             editor.innerHTML = h;
+            bindValues();
             editor.style.display = 'block';
             editor.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         }
@@ -218,10 +298,14 @@ class ModulesType extends AbstractType
 
         function saveEditor() {
             if (editing == null) { return; }
-            editor.querySelectorAll('.m-field').forEach(function (el) {
-                var f = el.getAttribute('data-field');
+            fields.forEach(function (f) {
+                var c = editor.querySelector('[data-field="' + f + '"]');
+                if (!c) { return; }
+                var type = c.getAttribute('data-type') || 'text';
+                var el = c.querySelector('input, select, textarea');
+                if (!el) { return; }
                 var v = el.value;
-                if (f === 'limit' || f === 'item_id') {
+                if (type === 'number') {
                     v = v === '' ? '' : parseInt(v, 10);
                     if (isNaN(v)) { v = ''; }
                 }
