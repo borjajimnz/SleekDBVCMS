@@ -4,6 +4,27 @@
 
 $current = $_GET['p'] ?? null;
 $stores = $core->getConfig()->getStores();
+
+// Sidebar sections: content stores vs system stores.
+$contentStores = [];
+$systemStores = [];
+foreach ($stores as $name => $def) {
+    if (in_array($name, ['pages', 'modules', 'users', 'roles'], true)) {
+        $systemStores[$name] = $def;
+    } else {
+        $contentStores[$name] = $def;
+    }
+}
+
+function cms_store_link(string $name, ?string $current): string
+{
+    $active = $current === $name;
+    return '<a href="?p=' . urlencode($name) . '"'
+        . ' class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm '
+        . ($active ? 'bg-blue-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800') . '">'
+        . '<svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>'
+        . htmlspecialchars($name) . '</a>';
+}
 ?>
 <!DOCTYPE html>
 <html lang="en" class="h-full">
@@ -48,12 +69,18 @@ $stores = $core->getConfig()->getStores();
                     <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
                     <?php $core->_('dashboard'); ?>
                 </a>
-                <?php foreach ($stores as $storek => $storev) { ?>
-                    <a href="?p=<?php print urlencode($storek); ?>"
-                       class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm <?php print $current === $storek ? 'bg-blue-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'; ?>">
-                        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
-                        <?php print htmlspecialchars($storek); ?>
-                    </a>
+                <a href="../" target="_blank" rel="noopener"
+                   class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
+                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.5 6H5a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-8.5M19 3h-4M19 3v4M19 3l-8.5 8.5"/></svg>
+                    <?php $core->_('View site'); ?>
+                </a>
+                <?php if ($contentStores) { ?>
+                    <div class="px-3 pt-4 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Contenido</div>
+                    <?php foreach ($contentStores as $storek => $storev) { print cms_store_link($storek, $current); } ?>
+                <?php } ?>
+                <?php if ($systemStores) { ?>
+                    <div class="px-3 pt-4 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Sistema</div>
+                    <?php foreach ($systemStores as $storek => $storev) { print cms_store_link($storek, $current); } ?>
                 <?php } ?>
             </nav>
         </aside>
