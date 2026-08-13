@@ -190,6 +190,13 @@ See [CHANGELOG.md](CHANGELOG.md) for the version history.
 ### Content Editing
 ![CRUD Form](demo/edit.PNG)
 
+### Building a Page with Modules
+![Page edit with module instances](demo/pages-edit.PNG)
+
+The `modules` field on a page lists the module instances it uses (type badges like `HERO`, `STORE_ITEM`, ...). Clicking the pencil opens an inline editor to fill each module's values:
+
+![Module inline editor](demo/module-editor.PNG)
+
 ### Public Front
 ![Public Front](demo/frontend.PNG)
 
