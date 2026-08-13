@@ -29,8 +29,10 @@
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </span>
                 <ul class="absolute left-0 top-full pt-2 invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-opacity">
-                    <li class="bg-white dark:bg-gray-900 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-2 min-w-44 space-y-0.5">
-                        @include('partials.menu-tree', ['items' => $children, 'variant' => 'desktop', 'currentUrl' => $currentUrl])
+                    <li class="bg-white dark:bg-gray-900 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-2 min-w-44">
+                        <ul class="space-y-0.5">
+                            @include('partials.menu-tree', ['items' => $children, 'variant' => 'desktop', 'currentUrl' => $currentUrl])
+                        </ul>
                     </li>
                 </ul>
             @else

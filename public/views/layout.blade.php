@@ -65,7 +65,9 @@
                 @endif
                 <nav class="ml-auto hidden md:flex items-center gap-1">
                     @if ($useMenus)
-                        @include('partials.menu-tree', ['items' => $headerMenu, 'variant' => 'desktop', 'currentUrl' => $currentUrl])
+                        <ul class="flex items-center gap-1 list-none m-0 p-0">
+                            @include('partials.menu-tree', ['items' => $headerMenu, 'variant' => 'desktop', 'currentUrl' => $currentUrl])
+                        </ul>
                     @else
                         @foreach ($navPages as $nav)
                             @php $isActive = $currentPage === ($nav['slug'] ?? ''); @endphp
@@ -94,7 +96,9 @@
             </div>
             <nav id="mobile-menu" class="hidden md:hidden pb-4 flex flex-col gap-1 border-t border-gray-200 dark:border-gray-800 pt-2">
                 @if ($useMenus)
-                    @include('partials.menu-tree', ['items' => $headerMenu, 'variant' => 'mobile', 'currentUrl' => $currentUrl])
+                    <ul class="flex flex-col gap-1 list-none m-0 p-0">
+                        @include('partials.menu-tree', ['items' => $headerMenu, 'variant' => 'mobile', 'currentUrl' => $currentUrl])
+                    </ul>
                 @else
                     @foreach ($navPages as $nav)
                         @php $isActive = $currentPage === ($nav['slug'] ?? ''); @endphp
