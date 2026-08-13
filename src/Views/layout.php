@@ -389,6 +389,12 @@ function cms_store_link(string $name, ?string $current): string
         document.addEventListener('DOMContentLoaded', function () {
             window.cmsRepeater.init(document);
         });
+        document.addEventListener('change', function (e) {
+            var sel = e.target;
+            if (!sel.classList || !sel.classList.contains('cms-link-picker')) { return; }
+            var input = sel.previousElementSibling;
+            if (input) { input.value = sel.value; }
+        });
     </script>
 </body>
 </html>
