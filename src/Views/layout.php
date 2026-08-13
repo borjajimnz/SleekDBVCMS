@@ -14,7 +14,7 @@ if ($siteName === '') {
 $contentStores = [];
 $systemStores = [];
 foreach ($stores as $name => $def) {
-    if (in_array($name, ['pages', 'modules', 'users', 'roles', 'posts', 'categories', 'redirects', 'leads', 'forms'], true)) {
+    if (in_array($name, ['pages', 'modules', 'users', 'roles', 'posts', 'categories', 'redirects', 'leads', 'forms', 'menus'], true)) {
         $systemStores[$name] = $def;
     } else {
         $contentStores[$name] = $def;
@@ -237,6 +237,14 @@ function cms_store_link(string $name, ?string $current): string
                         });
                         h += '<div><label class="block text-[10px] uppercase tracking-wide text-gray-400 mb-0.5">' + esc(f.label) + '</label>'
                             + '<select class="' + name + ' ' + clsSm + '" ' + (disabled ? 'disabled' : '') + '>' + opts + '</select></div>';
+                    } else if (f.type === 'link') {
+                        var lOpts = '<option value="">-- Internal link --</option>';
+                        (f.links || []).forEach(function (l) {
+                            lOpts += '<option value="' + esc(l.value) + '"' + (String(v) === String(l.value) ? ' selected' : '') + '>' + esc(l.label) + '</option>';
+                        });
+                        h += '<div class="sm:col-span-2"><label class="block text-[10px] uppercase tracking-wide text-gray-400 mb-0.5">' + esc(f.label) + '</label>'
+                            + '<div class="flex gap-1.5"><input type="text" class="' + name + ' flex-1 ' + clsSm + '" value="' + esc(v) + '" placeholder="https://... or /page" ' + (disabled ? 'disabled' : '') + '>'
+                            + '<select class="rp-link ' + clsSm + '" data-name="' + esc(f.name) + '" ' + (disabled ? 'disabled' : '') + '>' + lOpts + '</select></div></div>';
                     } else {
                         h += '<div><label class="block text-[10px] uppercase tracking-wide text-gray-400 mb-0.5">' + esc(f.label) + '</label>'
                             + '<input type="' + (f.type === 'url' ? 'url' : 'text') + '" class="' + name + ' ' + clsSm + '" value="' + esc(v) + '" ' + (disabled ? 'disabled' : '') + '></div>';
@@ -305,6 +313,12 @@ function cms_store_link(string $name, ?string $current): string
                 list.addEventListener('change', function (e) {
                     var row = e.target.closest('.repeater-row');
                     if (!row) { return; }
+                    if (e.target.classList.contains('rp-link')) {
+                        var target = row.querySelector('.rp-' + e.target.getAttribute('data-name'));
+                        if (target) { target.value = e.target.value; }
+                        refreshRow(row);
+                        return;
+                    }
                     var file = e.target.classList.contains('rp-file') ? e.target.files[0] : null;
                     if (file) {
                         var reader = new FileReader();

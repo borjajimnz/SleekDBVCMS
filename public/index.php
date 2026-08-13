@@ -238,6 +238,58 @@ foreach ($allowedStores as $name) {
     }
 }
 
+/**
+ * Build the nested menu tree for one location (header|footer) from the
+ * "menus" store: only enabled items, ordered by the order field, grouped by
+ * their parent (self-join). Items reference internal/external targets via the
+ * url field (plain URL string, e.g. "/about", "/products" or "https://...").
+ */
+function front_menu_tree(Core $cms, array $stores, string $location): array
+{
+    if (!isset($stores['menus'])) {
+        return [];
+    }
+    try {
+        $items = $cms->getDatabase()->findAll('menus', ['order' => 'asc']);
+    } catch (\Throwable $e) {
+        return [];
+    }
+
+    $byId = [];
+    foreach ($items as $item) {
+        if (empty($item['enabled'])) {
+            continue;
+        }
+        if ((string)($item['location'] ?? '') !== $location) {
+            continue;
+        }
+        $id = (int)($item['_id'] ?? 0);
+        if ($id > 0) {
+            $item['children'] = [];
+            $byId[$id] = $item;
+        }
+    }
+
+    $tree = [];
+    foreach ($byId as $id => &$node) {
+        $parent = (int)($node['parent'] ?? 0);
+        if ($parent > 0 && isset($byId[$parent])) {
+            $byId[$parent]['children'][] = &$node;
+        } else {
+            $tree[] = &$node;
+        }
+    }
+    unset($node);
+    return $tree;
+}
+
+// When the menus store has header/footer items they replace the legacy
+// navPages navigation; otherwise the old behaviour is kept as fallback.
+$frontConfig['menus'] = [
+    'header' => front_menu_tree($cms, $stores, 'header'),
+    'footer' => front_menu_tree($cms, $stores, 'footer'),
+];
+
 // ---- Render module ----
 function front_render_module(array $module, array $ctx): string
 {

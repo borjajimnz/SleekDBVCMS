@@ -133,6 +133,21 @@
       "code":"select",
       "enabled":"checkbox"
    },
+   "menus":{
+      "label":"text",
+      "location":"select",
+      "parent":{
+         "join":{
+            "key":"parent",
+            "foreing_table":"menus",
+            "foreing_key":"_id",
+            "foreing_display":["label"]
+         }
+      },
+      "url":"link",
+      "order":"number",
+      "enabled":"checkbox"
+   },
    "leads":{
       "form":"text",
       "name":"text",

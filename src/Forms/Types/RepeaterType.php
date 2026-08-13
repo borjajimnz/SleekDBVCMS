@@ -40,13 +40,13 @@ class RepeaterType extends AbstractType
                 ['name' => 'period', 'label' => 'Period', 'type' => 'text'],
                 ['name' => 'features', 'label' => 'Features (one per line)', 'type' => 'textarea'],
                 ['name' => 'cta_text', 'label' => 'Button text', 'type' => 'text'],
-                ['name' => 'cta_url', 'label' => 'Button url', 'type' => 'url'],
+                ['name' => 'cta_url', 'label' => 'Button url', 'type' => 'link'],
                 ['name' => 'highlight', 'label' => 'Highlight plan', 'type' => 'checkbox'],
             ],
             'logos' => [
                 ['name' => 'image', 'label' => 'Logo image', 'type' => 'image'],
                 ['name' => 'name', 'label' => 'Name', 'type' => 'text'],
-                ['name' => 'url', 'label' => 'Link', 'type' => 'url'],
+                ['name' => 'url', 'label' => 'Link', 'type' => 'link'],
             ],
         ];
         return $schemas[$field] ?? [];

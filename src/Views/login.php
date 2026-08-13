@@ -18,7 +18,7 @@
         })();
     </script>
 </head>
-<body class="h-full bg-gray-100 dark:bg-gray-950 flex items-center justify-center p-4 antialiased">
+<body class="h-full bg-gray-100 dark:bg-gray-950 text-gray-900 dark:text-gray-100 flex items-center justify-center p-4 antialiased">
     <div class="w-full max-w-sm">
         <div class="flex justify-end mb-2">
             <button onclick="toggleTheme()" title="Toggle theme"

@@ -99,10 +99,10 @@ There is **no test suite** — verify by HTTP calls (see Verify). The admin UI's
 
 `ConfigurationService` distinguishes two concepts (both live on the same class):
 
-- **System stores** — always re-merged into the running config by `enforceProtectedStores()` and `saveStoresFromJson()` even if removed from `.default_stores`: `users`, `pages`, `modules`, `posts`, `categories`, `redirects`, `leads`, `forms`.
+- **System stores** — always re-merged into the running config by `enforceProtectedStores()` and `saveStoresFromJson()` even if removed from `.default_stores`: `users`, `pages`, `modules`, `posts`, `categories`, `redirects`, `leads`, `forms`, `menus`.
 - **Protected stores** (`PROTECTED_STORES = ['users']`) — system stores whose **records cannot be deleted** (`AdminController::handleStoreDelete` redirects; the delete button is hidden in `table.php`). `isProtected()` gates record deletion only.
 
-`modules`, `posts`, `categories`, `redirects`, `leads`, `forms` are **system stores but NOT protected**: their stores must exist in config, yet records are freely deletable. `redirects` holds SEO redirect rules (source → target, HTTP code, enabled) applied by the front; `leads` holds lead_form submissions (see Pages & modules); `forms` holds the form templates referenced by `lead_form` modules.
+`modules`, `posts`, `categories`, `redirects`, `leads`, `forms`, `menus` are **system stores but NOT protected**: their stores must exist in config, yet records are freely deletable. `redirects` holds SEO redirect rules (source → target, HTTP code, enabled) applied by the front; `leads` holds lead_form submissions (see Pages & modules); `forms` holds the form templates referenced by `lead_form` modules; `menus` holds the navigation items rendered in the front header/footer (see Menus).
 
 ## URL scheme
 
@@ -178,6 +178,12 @@ There is **no test suite** — verify by HTTP calls (see Verify). The admin UI's
 - `public/views/page.blade.php` resolves each `modules` entry: instance objects (arrays) are passed straight to `front_render_module()`; bare numeric ids are looked up in the `modules` store (backward compat).
 - `Bootstrap.php` seeds default module templates (one per supported type, idempotent by title — existing installs pick up new templates without duplicating old ones). Seeds carry only `title`/`type`/`fields`; the `lead_form` template's schema exposes `form_id` so instances reference a form template from the `forms` store.
 - `AdminController::handleStoreUpdate` sanitizes `pages.modules`: keeps instance arrays as-is and converts bare numeric ids to `{"_module_id": N}`. Client-side image data URIs (module images and repeater images) are persisted via `FileManager::uploadDataUri()` (downscaled WebP under `/storage/FY/`) by the recursive `persistDataUris()` helper, so the front serves cached files instead of multi-MB inline blobs.
+
+### `menus` store (header/footer navigation + sub-menus)
+- System store, records freely editable/deletable. Fields (`ConfigurationService::DEFAULT_MENUS_DEF`): `label` (text), `location` (select: `header` | `footer`), `parent` (self-join to `menus` → sub-menu; empty = top level), `url` (the `link` picker: internal pages/store listings/store items + external URL, stored as a plain URL string), `order` (number), `enabled` (checkbox).
+- The front (`public/index.php`) builds a tree with `front_menu_tree($cms, $stores, $location)`: enabled items only, sorted by `order`, children attached via the `parent` self-join. Trees are stashed in `$frontConfig['menus']['header'|'footer']`.
+- `public/views/layout.blade.php` renders the **header** from the menus store when it has enabled `header` items (desktop: hover dropdowns via `public/views/partials/menu-tree.blade.php`; mobile: indented list); otherwise it falls back to the legacy `navPages` (pages with `show_in_menu`). The **footer** renders the `footer` items as a link row. Active state matches the current pretty URL (`$currentUrl`).
+- `src/Views/form.php` special-cases the menus form: `location` gets its two options, `url` gets the internal-link picker (`cms_build_internal_links`, which excludes the `menus` store since it's never routed), and `parent` renders a self-join select with an empty "Ninguno (nivel superior)" option that also excludes the item itself to avoid circular sub-menus.
 
 ## SleekDB API gotchas
 

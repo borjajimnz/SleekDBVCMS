@@ -96,7 +96,7 @@ class ModulesType extends AbstractType
             'subtitle' => 'text',
             'image' => 'image',
             'cta_text' => 'text',
-            'cta_url' => 'url',
+            'cta_url' => 'link',
             'html' => 'rich_textarea',
             'store' => 'select',
             'limit' => 'number',
@@ -104,7 +104,7 @@ class ModulesType extends AbstractType
             'form_id' => 'select',
             'text' => 'rich_textarea',
             'image_position' => 'select',
-            'video_url' => 'url',
+            'video_url' => 'link',
             'poster' => 'image',
             'features' => 'repeater',
             'stats' => 'repeater',
@@ -129,12 +129,15 @@ class ModulesType extends AbstractType
             'text' => new TextType(),
             'image' => new ImageType(),
             'url' => new UrlType(),
+            'link' => new LinkType(),
             'rich_textarea' => new RichTextareaType(),
             'number' => new NumberType(),
             'select' => new SelectType(),
             'textarea' => new TextareaType(),
             'repeater' => new RepeaterType(),
         ];
+        $links = $attributes['links'] ?? [];
+        unset($attributes['links']);
         $templates = [];
         $fieldTypeMap = [];
         foreach ($this->fieldTypes() as $field => $ft) {
@@ -157,7 +160,11 @@ class ModulesType extends AbstractType
                 }
             }
             if ($ft === 'repeater') {
-                $attrs['schema'] = RepeaterType::schemaForField($field);
+                $schema = RepeaterType::schemaForField($field);
+                $attrs['schema'] = LinkType::decorateSchema($schema, $links);
+            }
+            if ($ft === 'link') {
+                $attrs['links'] = $links;
             }
             $html = $typeInstances[$ft]->render($field, null, $attrs);
             $templates[$field] = preg_replace('/\s+(name|id)="[^"]*"/', '', $html);
@@ -362,6 +369,15 @@ class ModulesType extends AbstractType
                                 updateImagePreview(c, reader.result);
                             };
                             reader.readAsDataURL(file);
+                        };
+                    }
+                } else if (type === 'link') {
+                    el.value = String(v);
+                    var linkSel = c.querySelector('select');
+                    if (linkSel) {
+                        linkSel.value = String(v);
+                        linkSel.onchange = function () {
+                            el.value = linkSel.value;
                         };
                     }
                 } else {

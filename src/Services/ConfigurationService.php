@@ -98,6 +98,28 @@ class ConfigurationService
         'success_message' => 'text',
     ];
 
+    // Navigation menu items (the "menus" collection). System store, records
+    // are freely editable/deletable from the CMS. Each item has a location
+    // (header/footer), an optional parent (self-join for header sub-menus), an
+    // internal/external target URL (link picker), an order and an enabled flag.
+    // When the store has header/footer items the front renders them instead of
+    // the legacy navPages-based navigation.
+    private const DEFAULT_MENUS_DEF = [
+        'label' => 'text',
+        'location' => 'select',
+        'parent' => [
+            'join' => [
+                'key' => 'parent',
+                'foreing_table' => 'menus',
+                'foreing_key' => '_id',
+                'foreing_display' => ['label'],
+            ],
+        ],
+        'url' => 'link',
+        'order' => 'number',
+        'enabled' => 'checkbox',
+    ];
+
     private array $config;
     private string $storesFilePath;
     private string $settingsFilePath;
@@ -233,6 +255,7 @@ class ConfigurationService
         $stores['redirects'] = $stores['redirects'] ?? self::DEFAULT_REDIRECTS_DEF;
         $stores['leads'] = $stores['leads'] ?? self::DEFAULT_LEADS_DEF;
         $stores['forms'] = $stores['forms'] ?? self::DEFAULT_FORMS_DEF;
+        $stores['menus'] = $stores['menus'] ?? self::DEFAULT_MENUS_DEF;
         $this->config['stores'] = $stores;
     }
 
@@ -284,6 +307,7 @@ class ConfigurationService
             $stores['redirects'] = $stores['redirects'] ?? self::DEFAULT_REDIRECTS_DEF;
             $stores['leads'] = $stores['leads'] ?? self::DEFAULT_LEADS_DEF;
             $stores['forms'] = $stores['forms'] ?? self::DEFAULT_FORMS_DEF;
+            $stores['menus'] = $stores['menus'] ?? self::DEFAULT_MENUS_DEF;
             $decoded['stores'] = $stores;
         }
 

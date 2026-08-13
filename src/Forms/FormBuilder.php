@@ -9,6 +9,7 @@ use SleekDBVCMS\Forms\Types\EmailType;
 use SleekDBVCMS\Forms\Types\NumberType;
 use SleekDBVCMS\Forms\Types\ColorType;
 use SleekDBVCMS\Forms\Types\UrlType;
+use SleekDBVCMS\Forms\Types\LinkType;
 use SleekDBVCMS\Forms\Types\FileType;
 use SleekDBVCMS\Forms\Types\SelectType;
 use SleekDBVCMS\Forms\Types\ImageType;
@@ -57,6 +58,7 @@ class FormBuilder
             'number' => new NumberType(),
             'color' => new ColorType(),
             'url' => new UrlType(),
+            'link' => new LinkType(),
             'file' => new FileType(),
             'select' => new SelectType(),
             'image' => new ImageType(),
