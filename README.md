@@ -12,13 +12,13 @@ Two front-ends on the same domain:
 ## Features
 
 - **Flat-file NoSQL**: no database server required — SleekDB stores JSON documents on disk.
-- **Dynamic content types**: define stores in `.default_stores` with 20+ field types (text, rich text, image, color, url, number, decimal, email, date/datetime, checkbox, select, password, join relations, repeater, modules, link picker, form builder).
+- **Dynamic content types**: define stores in `.default_stores` with 20 field types (text, textarea, rich text/Quill, image, color, url, link picker, number, decimal, email, date/datetime, checkbox, select, password, file, join relations, repeater, modules, form builder, module schema).
 - **Pages & modules**: pages are built from reusable module templates (hero, text, store list, store item, lead form, CTA, split, features, stats, testimonials, FAQ, pricing, logos, video). Templates hold only configuration; each page instance stores its own values.
 - **Menus**: header/footer navigation with sub-menus, internal-link picker and external URLs.
 - **Forms & leads**: `lead_form` modules reference form templates; submissions are stored in the `leads` store and optionally emailed via SMTP.
 - **SEO**: pretty URLs, XML sitemap, and a `redirects` store for 301/302/307/308 rules.
 - **Media**: raster uploads are downscaled and converted to WebP (GD, EXIF orientation applied).
-- **JSON API**: lightweight endpoints in `public/api/`.
+- **JSON API**: lightweight endpoints in `public/api/` (e.g. `?users=1`).
 - **Tailwind CSS + dark mode**: compiled at build time, no CDN on page.
 - **Secure auth**: password hashing, session-based login, protected `users` store.
 
@@ -54,6 +54,12 @@ Default credentials:
 - Username: admin
 - Password: password
 
+### Production (nginx + PHP-FPM)
+
+- Web root is `public/`; route all non-file paths to `public/index.php`.
+- PHP-FPM must be able to write to `storage/` (SleekDB creates `cache/`/`data/` folders lazily). Run `chmod -R 777 storage backups`; on permission errors `chown` them to the PHP-FPM user.
+- Rebuild the stylesheet after changing templates: `npm run build:css` (the CSS URL is versioned by file mtime, so a rebuild busts browser caches).
+
 ## Configuration
 
 ### Config.php
@@ -75,7 +81,11 @@ $config = [
 
 ### Runtime settings
 
-`storage/settings.json` holds site settings editable from the dashboard: `site_name`, `tagline`, `blog_enabled`, plus SMTP notification settings for lead emails.
+`storage/settings.json` holds site settings editable from the dashboard: `site_name`, `tagline`, `blog_enabled` (when off, posts/categories are hidden everywhere), plus SMTP notification settings for lead emails.
+
+### Public front config
+
+`public/config.php` (returns an array) controls the front-end: `site_name`, `tagline`, `home` (featured store + items per store), `menu` (only stores listed here are publicly reachable), `labels` (nav display names), `header_html` / `footer_html` (raw HTML), `image_fields` / `html_fields` (how fields render in cards), and `theme` (`auto` | `light` | `dark`).
 
 ### Content types
 
@@ -161,6 +171,10 @@ storage/
 - **`leads`** — submissions of `lead_form` modules.
 - **`redirects`** — SEO redirect rules (`source` → `target`, HTTP code, enabled).
 - **System stores** re-merged on every boot: `users`, `pages`, `modules`, `posts`, `categories`, `redirects`, `leads`, `forms`, `menus`. Only `users` is protected from deletion.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for the version history.
 
 ## Screenshots
 
