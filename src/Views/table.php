@@ -36,6 +36,7 @@ if ($table === 'pages') {
     </form>
 </div>
 
+<?php $core->doAction('admin_table_top'); ?>
 <div class="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
     <div class="overflow-x-auto">
         <table class="w-full text-sm min-w-max">
@@ -114,3 +115,4 @@ if ($table === 'pages') {
         </table>
     </div>
 </div>
+<?php $core->doAction('admin_table_bottom'); ?>

@@ -1,0 +1,230 @@
+#!/usr/bin/env php
+<?php
+/**
+ * cms — the SleekDBVCMS installer / console.
+ *
+ * Commands:
+ *   install        Materialize a project from this package: writes Config.php,
+ *                 creates storage/backups, a relative public/storage symlink,
+ *                 copies the user-owned overrides, builds Tailwind, and seeds.
+ *   publish [--keep]  Refresh the front-end assets from resources/front.
+ *                     Without --keep the front is overwritten (it is core-owned);
+ *                     --keep preserves local edits. Config.php, .default_stores
+ *                     and the admin overrides are NEVER overwritten.
+ *   update         composer update + publish.
+ *   seed           Re-run the idempotent seeding.
+ *
+ * Run from the project root: `php bin/cms install`
+ */
+
+if (PHP_SAPI !== 'cli') {
+    die("cms must be run from the CLI.\n");
+}
+
+$root = dirname(__DIR__);
+chdir($root);
+
+spl_autoload_register(function (string $class): void {
+    $prefix = 'SleekDBVCMS\\';
+    if (str_starts_with($class, $prefix)) {
+        $file = dirname(__DIR__) . '/src/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
+        if (is_file($file)) {
+            require $file;
+        }
+    }
+});
+
+require_once dirname(__DIR__) . '/vendor/autoload.php';
+
+use SleekDBVCMS\Core;
+use SleekDBVCMS\Services\SleekDBManager;
+use SleekDBVCMS\Services\AuthenticationService;
+use SleekDBVCMS\Services\ConfigurationService;
+use SleekDBVCMS\Services\FileManager;
+use SleekDBVCMS\Services\Logger;
+use SleekDBVCMS\Services\BladeRenderer;
+use SleekDBVCMS\Services\EmailService;
+use SleekDBVCMS\Forms\FormBuilder;
+
+function loadCore(string $root): Core
+{
+    $config = null;
+    $configFile = $root . '/Config.php';
+    if (is_file($configFile)) {
+        require_once $configFile;
+    }
+    if (!is_array($config)) {
+        die("Config.php is missing or invalid. Run `php bin/cms install` first.\n");
+    }
+
+    $logger = new Logger($root . '/storage/logs/cms.log');
+    $database = new SleekDBManager($root . '/storage/stores', $config['options'] ?? []);
+    $auth = new AuthenticationService($database);
+    $configuration = new ConfigurationService($config, $root . '/.default_stores', $root . '/storage/settings.json');
+    $fileManager = new FileManager(
+        $root,
+        $config['public_path'],
+        $config['upload_files_extensions_allowed'] ?? [],
+        (int)($config['options']['image_max_side'] ?? 1920),
+        (int)($config['options']['image_quality'] ?? 80)
+    );
+    $formBuilder = new FormBuilder();
+    $blade = new BladeRenderer($root . '/public/views', $root . '/storage/blade-cache');
+    $email = new EmailService($configuration->getSettings(), $logger);
+
+    return new Core($database, $auth, $configuration, $fileManager, $formBuilder, $logger, $blade, $email, $root);
+}
+
+function ensureDirs(string $root): void
+{
+    foreach (['storage', 'storage/public', 'storage/stores', 'storage/logs', 'storage/blade-cache', 'backups'] as $dir) {
+        $path = $root . '/' . $dir;
+        if (!is_dir($path)) {
+            @mkdir($path, 0777, true);
+        }
+        @chmod($path, 0777);
+    }
+}
+
+function ensurePublicStorageLink(string $root, string $publicPath): void
+{
+    $link = $publicPath . '/storage';
+    if (is_link($link) || is_dir($link)) {
+        return;
+    }
+    $target = '../storage/public';
+    if (!@symlink($target, $link)) {
+        @mkdir($link, 0777, true);
+    }
+}
+
+function writeConfigFromDist(string $root, ?string $appName): void
+{
+    $dist = $root . '/resources/skeleton/Config.php.dist';
+    $dest = $root . '/Config.php';
+    if (is_file($dest)) {
+        return; // never overwrite
+    }
+    $src = is_file($dist) ? file_get_contents($dist) : '';
+    $name = $appName ?: 'SleekdbVCMS';
+    $src = preg_replace("/'app_name' => '[^']*'/", "'app_name' => '" . preg_replace("/'/", "\\'", $name) . "'", $src);
+    file_put_contents($dest, $src);
+    @chmod($dest, 0644);
+}
+
+function copyUserOwnedStubs(string $root): void
+{
+    $map = [
+        'resources/skeleton/admin/custom.css.empty' => 'public/cms/custom.css',
+        'resources/skeleton/admin/labels.php.empty' => 'admin/labels.php',
+        'resources/skeleton/admin/cms_hooks.php.empty' => 'cms_hooks.php',
+        'resources/skeleton/.default_stores' => '.default_stores',
+    ];
+    foreach ($map as $src => $dst) {
+        $dest = $root . '/' . $dst;
+        $parent = dirname($dest);
+        if (!is_dir($parent)) {
+            @mkdir($parent, 0777, true);
+        }
+        if (!is_file($dest) && is_file($root . '/' . $src)) {
+            copy($root . '/' . $src, $dest);
+        }
+    }
+}
+
+function buildTailwind(string $root): void
+{
+    $css = $root . '/public/dist/tailwind.css';
+    if (!is_dir(dirname($css))) {
+        @mkdir(dirname($css), 0777, true);
+    }
+    // Prefer a real build when node is available.
+    $cmd = 'npm run build:css 2>/dev/null';
+    passthru($cmd, $exit);
+    if ($exit !== 0 || !is_file($css) || filesize($css) < 1000) {
+        $fallback = $root . '/resources/front/dist/tailwind.css';
+        if (is_file($fallback)) {
+            copy($fallback, $css);
+            @chmod($css, 0644);
+        }
+    }
+}
+
+function copyFront(string $root, bool $keep): void
+{
+    // Only the runtime front is published into public/: the blade views and
+    // the compiled CSS. The dev-only tailwind/ lives at the repo root.
+    $subdirs = ['views', 'dist'];
+    foreach ($subdirs as $sub) {
+        $src = $root . '/resources/front/' . $sub;
+        if (!is_dir($src)) { continue; }
+        $dst = $root . '/public/' . $sub;
+        if (!is_dir($dst)) { @mkdir($dst, 0777, true); }
+        $ri = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($src, RecursiveDirectoryIterator::SKIP_DOTS), RecursiveIteratorIterator::SELF_FIRST);
+        foreach ($ri as $item) {
+            $rel = substr($item->getPathname(), strlen($src) + 1);
+            $dest = $dst . '/' . $rel;
+            if ($item->isDir()) {
+                if (!is_dir($dest)) { @mkdir($dest, 0777, true); }
+            } else {
+                $parent = dirname($dest);
+                if (!is_dir($parent)) { @mkdir($parent, 0777, true); }
+                if ($keep && is_file($dest)) { continue; }
+                copy($item->getPathname(), $dest);
+                @chmod($dest, 0644);
+            }
+        }
+    }
+}
+
+$cmd = $argv[1] ?? 'help';
+
+switch ($cmd) {
+    case 'install':
+        $name = $argv[2] ?? null;
+        echo "==> Writing Config.php\n";
+        writeConfigFromDist($root, $name);
+        echo "==> Creating storage/backups dirs\n";
+        ensureDirs($root);
+        $config = include $root . '/Config.php';
+        echo "==> Creating relative public/storage symlink\n";
+        ensurePublicStorageLink($root, $config['public_path']);
+        echo "==> Copying user-owned overrides (custom.css, labels.php, cms_hooks.php)\n";
+        copyUserOwnedStubs($root);
+        echo "==> Building Tailwind (or using bundled fallback)\n";
+        buildTailwind($root);
+        echo "==> Seeding defaults\n";
+        $cms = loadCore($root);
+        $cms->install();
+        $cms->ensureStorageWritable();
+        echo "\nDone. Visit the site and log in with admin / password.\n";
+        break;
+
+    case 'publish':
+        $keep = in_array('--keep', $argv, true);
+        echo $keep ? "==> Publishing front (keeping local edits)\n" : "==> Publishing front (overwriting)\n";
+        copyFront($root, $keep);
+        echo "Done.\n";
+        break;
+
+    case 'update':
+        echo "==> composer update\n";
+        passthru('composer update borjajimnz/sleekdbvcms');
+        echo "==> publishing front\n";
+        copyFront($root, in_array('--keep', $argv, true));
+        break;
+
+    case 'seed':
+        $cms = loadCore($root);
+        $cms->install();
+        echo "Seeded.\n";
+        break;
+
+    default:
+        echo "cms — SleekDBVCMS installer\n\n";
+        echo "  php bin/cms install [app_name]   Materialize a project from this package\n";
+        echo "  php bin/cms publish [--keep]     Refresh front-end assets from resources/front\n";
+        echo "  php bin/cms update [--keep]      composer update + publish\n";
+        echo "  php bin/cms seed                 Re-run seeding\n";
+        exit(1);
+}

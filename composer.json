@@ -1,34 +1,46 @@
 {
-   "name":"vorja/sleekdbvcms",
-   "description":"SleekdbVCMS - The missing & simple SleekDB CMS Content Management System",
-   "keywords":[
-      "SleekDB CMS",
-      "CMS"
-   ],
-   "type":"project",
-   "license":"MIT",
-   "authors":[
-      {
-         "name":"Vorja",
-         "email":"vorjadev@gmail.com"
-      }
-   ],
-   "require":{
-      "php":">=8.1",
-      "ext-json":"*",
-      "rakibtg/sleekdb":"2.15",
-      "jenssegers/blade": "^2.0"
-   },
-   "autoload":{
-      "psr-4":{
-         "SleekDB\\":"src/",
-         "SleekDBVCMS\\":"src/"
-      }
-   },
-   "scripts":{
-      "post-install-cmd":[
-         "chmod -R 777 ./storage",
-         "chmod -R 777 ./public"
-      ]
-   }
+    "name": "borjajimnz/sleekdbvcms",
+    "description": "SleekdbVCMS — lightweight PHP CMS on top of SleekDB, packaged as a Composer library with an installer.",
+    "keywords": [
+        "SleekDB CMS",
+        "CMS"
+    ],
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "borjajimnz",
+            "email": "vorjadev@gmail.com"
+        }
+    ],
+    "require": {
+        "php": ">=8.1",
+        "ext-json": "*",
+        "rakibtg/sleekdb": "2.15",
+        "jenssegers/blade": "^2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "SleekDBVCMS\\": "src/"
+        }
+    },
+    "bin": [
+        "bin/cms"
+    ],
+    "extra": {
+        "sleekdbvcms": {
+            "publish": {
+                "front": "resources/front:public",
+                "tailwind": "resources/front/tailwind:tailwind",
+                "tailwind_dist": "resources/front/dist:public/dist",
+                "default_stores": "resources/skeleton/.default_stores:.default_stores"
+            }
+        }
+    },
+    "scripts": {
+        "post-install-cmd": [
+            "chmod -R 777 ./storage",
+            "chmod -R 777 ./public"
+        ]
+    }
 }

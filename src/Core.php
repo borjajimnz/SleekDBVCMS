@@ -9,6 +9,8 @@ use SleekDBVCMS\Services\FileManager;
 use SleekDBVCMS\Services\Logger;
 use SleekDBVCMS\Services\BladeRenderer;
 use SleekDBVCMS\Services\EmailService;
+use SleekDBVCMS\Services\HookManager;
+use SleekDBVCMS\Services\Installer;
 use SleekDBVCMS\Forms\FormBuilder;
 use RecursiveIteratorIterator;
 use RecursiveDirectoryIterator;
@@ -23,6 +25,7 @@ class Core
     private Logger $logger;
     private BladeRenderer $blade;
     private EmailService $email;
+    private HookManager $hookManager;
     private string $rootPath;
     private string $storagePath;
     private string $storePath;
@@ -46,6 +49,7 @@ class Core
         $this->logger = $logger;
         $this->blade = $blade;
         $this->email = $email;
+        $this->hookManager = new HookManager();
         $this->rootPath = $rootPath;
         $this->storagePath = $rootPath . '/storage';
         $this->storePath = $rootPath . '/storage/stores';
@@ -91,6 +95,77 @@ class Core
         return $this->email;
     }
 
+    // ---- Hook / extension API -----------------------------------------
+
+    public function getHookManager(): HookManager
+    {
+        return $this->hookManager;
+    }
+
+    /** Idempotent seeding (admin user, default form, module templates). */
+    public function install(): void
+    {
+        (new Installer($this))->seed();
+    }
+
+    public function addAction(string $hook, callable $cb, int $priority = 10): void
+    {
+        $this->hookManager->addAction($hook, $cb, $priority);
+    }
+
+    public function doAction(string $hook, mixed ...$args): void
+    {
+        $this->hookManager->doAction($hook, ...$args);
+    }
+
+    public function hasAction(string $hook): bool
+    {
+        return $this->hookManager->hasAction($hook);
+    }
+
+    public function addFilter(string $hook, callable $cb, int $priority = 10): void
+    {
+        $this->hookManager->addFilter($hook, $cb, $priority);
+    }
+
+    public function applyFilters(string $hook, mixed $value, mixed ...$args): mixed
+    {
+        return $this->hookManager->applyFilters($hook, $value, ...$args);
+    }
+
+    public function addAdminPage(string $slug, string $title, callable $render, int $position = 100): void
+    {
+        $this->hookManager->addAdminPage($slug, $title, $render, $position);
+    }
+
+    public function getAdminPage(string $slug): ?array
+    {
+        return $this->hookManager->getAdminPage($slug);
+    }
+
+    /** @return array<string, array{title:string, render:callable, position:int}> */
+    public function getAdminPages(): array
+    {
+        return $this->hookManager->getAdminPages();
+    }
+
+    public function addMenu(string $id, string $label, string $url, int $position = 100): void
+    {
+        $this->hookManager->addMenu($id, $label, $url, $position);
+    }
+
+    /** @return array<int, array{label:string, url:string, position:int}> */
+    public function getMenuItems(): array
+    {
+        return $this->hookManager->getMenuItems();
+    }
+
+    /** @param array<string, string> $map */
+    public function setTranslations(array $map): void
+    {
+        $this->hookManager->setTranslations($map);
+    }
+
     public function getRootPath(): string
     {
         return $this->rootPath;
@@ -127,7 +202,7 @@ class Core
 
     public function __(string $key): string
     {
-        return $key;
+        return $this->hookManager->translate($key);
     }
 
     public function _(string $key): void

@@ -20,6 +20,7 @@
 </head>
 <body class="h-full bg-gray-100 dark:bg-gray-950 text-gray-900 dark:text-gray-100 flex items-center justify-center p-4 antialiased">
     <div class="w-full max-w-sm">
+        <?php $core->doAction('admin_login_top'); ?>
         <div class="flex justify-end mb-2">
             <button onclick="toggleTheme()" title="Toggle theme"
                     class="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800">
@@ -62,5 +63,6 @@
             localStorage.setItem('cms-theme', dark ? 'dark' : 'light');
         }
     </script>
+    <?php $core->doAction('admin_login_bottom'); ?>
 </body>
 </html>

@@ -38,7 +38,11 @@ function cms_store_link(string $name, ?string $current): string
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?php print htmlspecialchars($siteName); ?></title>
     <link href="<?php print cms_css_url(); ?>" rel="stylesheet">
+    <?php if (file_exists($core->getRootPath() . '/public/cms/custom.css')) { ?>
+    <link href="/cms/custom.css" rel="stylesheet">
+    <?php } ?>
     <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
+    <?php $core->doAction('admin_head'); ?>
     <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
     <script>
         // Apply theme before render to avoid flash
@@ -92,12 +96,23 @@ function cms_store_link(string $name, ?string $current): string
                     <div class="px-3 pt-4 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Sistema</div>
                     <?php foreach ($systemStores as $storek => $storev) { print cms_store_link($storek, $current); } ?>
                 <?php } ?>
+                <?php
+                $menuExtras = $core->getMenuItems();
+                $menuExtras = $core->applyFilters('admin_menu_items', $menuExtras);
+                usort($menuExtras, fn($a, $b) => ($a['position'] ?? 100) <=> ($b['position'] ?? 100));
+                foreach ($menuExtras as $mi) {
+                    $active = $current !== null && str_contains((string)$mi['url'], '?p=' . $current);
+                    print '<a href="' . htmlspecialchars((string)$mi['url']) . '" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm ' . ($active ? 'bg-blue-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800') . '">' . htmlspecialchars((string)$mi['label']) . '</a>';
+                }
+                ?>
+                <?php $core->doAction('admin_sidebar'); ?>
             </nav>
         </aside>
 
         <!-- Main -->
         <div class="flex-1 flex flex-col min-w-0">
             <header class="sticky top-0 z-20 h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center gap-3 px-4">
+                <?php $core->doAction('admin_header'); ?>
                 <button onclick="toggleSidebar(true)" class="lg:hidden p-2 -ml-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
                 </button>
@@ -128,7 +143,9 @@ function cms_store_link(string $name, ?string $current): string
             </header>
 
             <main class="flex-1 p-4 sm:p-6">
+                <?php $core->doAction('admin_main_top'); ?>
                 <?php print $content; ?>
+                <?php $core->doAction('admin_main_bottom'); ?>
             </main>
         </div>
     </div>
@@ -396,5 +413,6 @@ function cms_store_link(string $name, ?string $current): string
             if (input) { input.value = sel.value; }
         });
     </script>
+    <?php $core->doAction('admin_footer'); ?>
 </body>
 </html>

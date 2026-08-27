@@ -1,0 +1,14 @@
+<?php
+/**
+ * Project-level hooks for the CMS.
+ * Copy to "cms_hooks.php" (done by `bin cms install`) and register hooks on
+ * the Core instance ($cms). All methods are available on Core, e.g.
+ *
+ *   $cms->addAction('admin_header', fn() => print '<div>…</div>');
+ *   $cms->addAdminPage('reports', 'Reports', fn($c) => '<h1>Hi</h1>', 50);
+ *   $cms->addMenu('docs', 'Docs', 'https://example.com', 90);
+ *   $cms->addFilter('admin_page_title', fn($t) => $t . ' · MiEmpresa');
+ */
+
+// Example (uncomment to use):
+// $cms->addAction('admin_header', fn() => print '<div class="bg-blue-600 text-white px-4 py-2">Bienvenido</div>');

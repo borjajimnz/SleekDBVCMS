@@ -9,6 +9,7 @@
 /** @var string|null $settingsMsg */
 ?>
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <?php $core->doAction('admin_dashboard_top'); ?>
 
     <!-- Left column -->
     <div class="space-y-6">
@@ -195,3 +196,4 @@
         </form>
     </div>
 </div>
+<?php $core->doAction('admin_dashboard_bottom'); ?>

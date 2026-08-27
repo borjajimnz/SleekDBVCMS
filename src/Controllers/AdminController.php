@@ -50,6 +50,12 @@ class AdminController
     {
         $page = $_GET['p'] ?? null;
 
+        // Custom admin pages registered via hooks take precedence over stores.
+        if ($page !== null && $this->core->getAdminPage($page) !== null) {
+            $this->renderAdminCustomPage($this->core->getAdminPage($page));
+            return;
+        }
+
         if (isset($_POST['update_row'])) {
             $this->handleStoreUpdate($page, 'update_row');
         }
@@ -459,6 +465,14 @@ class AdminController
         ob_start();
         require __DIR__ . "/../Views/{$view}.php";
         $content = ob_get_clean();
+        require __DIR__ . '/../Views/layout.php';
+    }
+
+    private function renderAdminCustomPage(array $pageDef): void
+    {
+        $core = $this->core;
+        $html = (string)($pageDef['render'])($core);
+        $content = $html;
         require __DIR__ . '/../Views/layout.php';
     }
 }

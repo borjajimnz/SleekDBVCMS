@@ -1,0 +1,4 @@
+<?php
+// Empty placeholder: the user overrides the admin look here.
+// Copy it to "public/cms/custom.css" (done by `bin cms install`) and edit
+// whatever you need. Never overwritten by `bin cms publish`.

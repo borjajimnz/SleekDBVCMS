@@ -64,6 +64,7 @@ function cms_build_internal_links(\SleekDBVCMS\Core $core): array
 ?>
 <div class="max-w-2xl">
     <div class="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800">
+        <?php $core->doAction('admin_form_top'); ?>
         <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-800">
             <h2 class="font-semibold capitalize"><?php $core->_('Create'); ?> <?php print htmlspecialchars($table); ?></h2>
         </div>
@@ -210,6 +211,7 @@ function cms_build_internal_links(\SleekDBVCMS\Core $core): array
                     </a>
                 </div>
             </form>
+            <?php $core->doAction('admin_form_bottom'); ?>
         </div>
     </div>
 </div>

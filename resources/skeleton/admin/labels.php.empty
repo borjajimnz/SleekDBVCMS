@@ -1,0 +1,7 @@
+<?php
+// Project-level translations/labels override.
+// Copy to "admin/labels.php" (done by `bin cms install`) and return a map of
+// [key => string]. Keys are the same ones used in the admin views, e.g.
+//   return ['Dashboard' => 'Panel', 'Sign out' => ' logout'];
+// Loaded by Bootstrap.php into Core, which consults it from Core::__().
+return [];

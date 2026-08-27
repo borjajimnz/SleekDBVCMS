@@ -58,9 +58,7 @@ foreach (['storage', 'storage/public', 'storage/stores', 'storage/logs', 'storag
 // Under windows, no symlink so we need to create Storage folder instead.
 $publicStorage = $config['public_path'] . '/storage';
 if (!is_dir($publicStorage)) {
-    // Prefer a RELATIVE symlink so the project is portable (the old code
-    // linked to an absolute path, which breaks when the repo moves).
-    if (!@symlink('../storage/public', $publicStorage)) {
+    if (!@symlink($curDir . '/storage/public', $publicStorage)) {
         @mkdir($publicStorage, 0777, true);
     }
 }
