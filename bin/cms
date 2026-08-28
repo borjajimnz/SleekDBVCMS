@@ -93,6 +93,40 @@ function ensureDirs(string $root): void
     }
 }
 
+function copyCoreFiles(string $root, string $pkg): void
+{
+    if (!is_file($root . '/Bootstrap.php') && is_file($pkg . '/Bootstrap.php')) {
+        copy($pkg . '/Bootstrap.php', $root . '/Bootstrap.php');
+    }
+    $publicCore = ['index.php', 'config.php'];
+    foreach ($publicCore as $file) {
+        $dest = $root . '/public/' . $file;
+        if (!is_file($dest) && is_file($pkg . '/public/' . $file)) {
+            copy($pkg . '/public/' . $file, $dest);
+            @chmod($dest, 0644);
+        }
+    }
+    foreach (['api', 'img', 'views'] as $dir) {
+        $src = $pkg . '/public/' . $dir;
+        $dst = $root . '/public/' . $dir;
+        if (!is_dir($dst) && is_dir($src)) {
+            $ri = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($src, RecursiveDirectoryIterator::SKIP_DOTS), RecursiveIteratorIterator::SELF_FIRST);
+            foreach ($ri as $item) {
+                $rel = substr($item->getPathname(), strlen($src) + 1);
+                $dest = $dst . '/' . $rel;
+                if ($item->isDir()) {
+                    if (!is_dir($dest)) { @mkdir($dest, 0777, true); }
+                } else {
+                    $parent = dirname($dest);
+                    if (!is_dir($parent)) { @mkdir($parent, 0777, true); }
+                    copy($item->getPathname(), $dest);
+                    @chmod($dest, 0644);
+                }
+            }
+        }
+    }
+}
+
 function ensurePublicStorageLink(string $root, string $publicPath): void
 {
     $link = $publicPath . '/storage';
@@ -196,6 +230,8 @@ switch ($cmd) {
         $config = include $root . '/Config.php';
         echo "==> Creating relative public/storage symlink\n";
         ensurePublicStorageLink($root, $config['public_path']);
+        echo "==> Copying core files (Bootstrap.php, public/)\n";
+        copyCoreFiles($root, $pkg);
         echo "==> Copying user-owned overrides (custom.css, labels.php, cms_hooks.php)\n";
         copyUserOwnedStubs($root, $pkg);
         echo "==> Building Tailwind (or using bundled fallback)\n";
