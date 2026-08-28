@@ -8,12 +8,17 @@ use SleekDBVCMS\Interfaces\DatabaseInterface;
 class AuthenticationService implements AuthenticationInterface
 {
     private DatabaseInterface $database;
-    private array $sessionData;
+    private array $sessionData = [];
 
     public function __construct(DatabaseInterface $database)
     {
         $this->database = $database;
-        $this->sessionData = &$_SESSION;
+        if (session_status() === PHP_SESSION_NONE && PHP_SAPI !== 'cli') {
+            session_start();
+        }
+        if (isset($_SESSION) && is_array($_SESSION)) {
+            $this->sessionData = &$_SESSION;
+        }
     }
 
     public function login(string $username, string $password): bool
