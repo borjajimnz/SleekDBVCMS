@@ -106,7 +106,7 @@ function copyCoreFiles(string $root, string $pkg): void
             @chmod($dest, 0644);
         }
     }
-    foreach (['api', 'img', 'views'] as $dir) {
+    foreach (['api', 'cms', 'img', 'views'] as $dir) {
         $src = $pkg . '/public/' . $dir;
         $dst = $root . '/public/' . $dir;
         if (!is_dir($dst) && is_dir($src)) {
