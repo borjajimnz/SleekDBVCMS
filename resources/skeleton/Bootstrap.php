@@ -1,6 +1,6 @@
 <?php
 
-require_once 'vendor/autoload.php';
+require_once __DIR__ . '/vendor/autoload.php';
 
 use SleekDBVCMS\Core;
 use SleekDBVCMS\Controllers\AdminController;
@@ -98,11 +98,11 @@ $cms = new Core(
     $curDir
 );
 
-// Ensure storage is writable by the web server
-$cms->ensureStorageWritable();
-
-// Seed defaults (admin user, contact form, module templates) — idempotent.
-$cms->install();
+// Seed defaults only when storage/settings.json is missing (first boot).
+if (!is_file($curDir . '/storage/settings.json')) {
+    $cms->ensureStorageWritable();
+    $cms->install();
+}
 
 // Load project-level hooks/overrides if present (user-owned, never overwritten
 // by `bin/cms publish`). Hooks register actions/filters/custom pages/menus;

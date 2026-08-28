@@ -218,7 +218,9 @@ class Core
             if (!is_dir($path)) {
                 @mkdir($path, 0777, true);
             }
-            @chmod($path, 0777);
+            if (!is_writable($path)) {
+                @chmod($path, 0777);
+            }
         }
 
         $it = new RecursiveIteratorIterator(
@@ -226,7 +228,9 @@ class Core
             RecursiveIteratorIterator::SELF_FIRST
         );
         foreach ($it as $file) {
-            @chmod($file->getPathname(), 0777);
+            if (!is_writable($file->getPathname())) {
+                @chmod($file->getPathname(), 0777);
+            }
         }
     }
 }

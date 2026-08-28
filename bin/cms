@@ -22,6 +22,11 @@ if (PHP_SAPI !== 'cli') {
 }
 
 $root = dirname(__DIR__);
+// When installed as a dependency (vendor/borjajimnz/sleekdbvcms/bin/cms),
+// dirname(__DIR__) points inside vendor/. Walk up to the project root.
+if (basename(dirname($root)) === 'vendor') {
+    $root = dirname($root);
+}
 chdir($root);
 
 spl_autoload_register(function (string $class): void {
