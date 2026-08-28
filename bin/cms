@@ -22,9 +22,13 @@ if (PHP_SAPI !== 'cli') {
 }
 
 $root = dirname(__DIR__);
-// When installed as a dependency (vendor/borjajimnz/sleekdbvcms/bin/cms),
-// dirname(__DIR__) points inside vendor/. Walk up to the project root.
-if (basename(dirname($root)) === 'vendor') {
+// When installed as a dependency (vendor/<vendor>/<package>/bin/cms),
+// walk up to the project root. Handles both flat (vendor/pkg) and
+// namespaced (vendor/borjajimnz/sleekdbvcms) layouts.
+while ($root !== '/' && basename(dirname($root)) !== 'vendor') {
+    $root = dirname($root);
+}
+if ($root !== '/') {
     $root = dirname($root);
 }
 chdir($root);
