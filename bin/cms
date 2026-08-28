@@ -21,7 +21,8 @@ if (PHP_SAPI !== 'cli') {
     die("cms must be run from the CLI.\n");
 }
 
-$root = dirname(__DIR__);
+$pkg = dirname(__DIR__);
+$root = $pkg;
 // When installed as a dependency (vendor/<vendor>/<package>/bin/cms),
 // walk up to the project root. Handles both flat (vendor/pkg) and
 // namespaced (vendor/borjajimnz/sleekdbvcms) layouts.
@@ -31,19 +32,24 @@ while ($root !== '/' && basename(dirname($root)) !== 'vendor') {
 if ($root !== '/') {
     $root = dirname($root);
 }
+$installedAsDependency = ($root !== $pkg);
 chdir($root);
 
-spl_autoload_register(function (string $class): void {
+spl_autoload_register(function (string $class) use ($pkg): void {
     $prefix = 'SleekDBVCMS\\';
     if (str_starts_with($class, $prefix)) {
-        $file = dirname(__DIR__) . '/src/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
+        $file = $pkg . '/src/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
         if (is_file($file)) {
             require $file;
         }
     }
 });
 
-require_once dirname(__DIR__) . '/vendor/autoload.php';
+if ($installedAsDependency) {
+    require_once $root . '/vendor/autoload.php';
+} else {
+    require_once $pkg . '/vendor/autoload.php';
+}
 
 use SleekDBVCMS\Core;
 use SleekDBVCMS\Services\SleekDBManager;
