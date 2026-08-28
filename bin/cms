@@ -105,9 +105,9 @@ function ensurePublicStorageLink(string $root, string $publicPath): void
     }
 }
 
-function writeConfigFromDist(string $root, ?string $appName): void
+function writeConfigFromDist(string $root, string $pkg, ?string $appName): void
 {
-    $dist = $root . '/resources/skeleton/Config.php.dist';
+    $dist = $pkg . '/resources/skeleton/Config.php.dist';
     $dest = $root . '/Config.php';
     if (is_file($dest)) {
         return; // never overwrite
@@ -119,7 +119,7 @@ function writeConfigFromDist(string $root, ?string $appName): void
     @chmod($dest, 0644);
 }
 
-function copyUserOwnedStubs(string $root): void
+function copyUserOwnedStubs(string $root, string $pkg): void
 {
     $map = [
         'resources/skeleton/admin/custom.css.empty' => 'public/cms/custom.css',
@@ -133,13 +133,13 @@ function copyUserOwnedStubs(string $root): void
         if (!is_dir($parent)) {
             @mkdir($parent, 0777, true);
         }
-        if (!is_file($dest) && is_file($root . '/' . $src)) {
-            copy($root . '/' . $src, $dest);
+        if (!is_file($dest) && is_file($pkg . '/' . $src)) {
+            copy($pkg . '/' . $src, $dest);
         }
     }
 }
 
-function buildTailwind(string $root): void
+function buildTailwind(string $root, string $pkg): void
 {
     $css = $root . '/public/dist/tailwind.css';
     if (!is_dir(dirname($css))) {
@@ -149,7 +149,7 @@ function buildTailwind(string $root): void
     $cmd = 'npm run build:css 2>/dev/null';
     passthru($cmd, $exit);
     if ($exit !== 0 || !is_file($css) || filesize($css) < 1000) {
-        $fallback = $root . '/resources/front/dist/tailwind.css';
+        $fallback = $pkg . '/resources/front/dist/tailwind.css';
         if (is_file($fallback)) {
             copy($fallback, $css);
             @chmod($css, 0644);
@@ -157,13 +157,13 @@ function buildTailwind(string $root): void
     }
 }
 
-function copyFront(string $root, bool $keep): void
+function copyFront(string $root, string $pkg, bool $keep): void
 {
     // Only the runtime front is published into public/: the blade views and
     // the compiled CSS. The dev-only tailwind/ lives at the repo root.
     $subdirs = ['views', 'dist'];
     foreach ($subdirs as $sub) {
-        $src = $root . '/resources/front/' . $sub;
+        $src = $pkg . '/resources/front/' . $sub;
         if (!is_dir($src)) { continue; }
         $dst = $root . '/public/' . $sub;
         if (!is_dir($dst)) { @mkdir($dst, 0777, true); }
@@ -190,16 +190,16 @@ switch ($cmd) {
     case 'install':
         $name = $argv[2] ?? null;
         echo "==> Writing Config.php\n";
-        writeConfigFromDist($root, $name);
+        writeConfigFromDist($root, $pkg, $name);
         echo "==> Creating storage/backups dirs\n";
         ensureDirs($root);
         $config = include $root . '/Config.php';
         echo "==> Creating relative public/storage symlink\n";
         ensurePublicStorageLink($root, $config['public_path']);
         echo "==> Copying user-owned overrides (custom.css, labels.php, cms_hooks.php)\n";
-        copyUserOwnedStubs($root);
+        copyUserOwnedStubs($root, $pkg);
         echo "==> Building Tailwind (or using bundled fallback)\n";
-        buildTailwind($root);
+        buildTailwind($root, $pkg);
         echo "==> Seeding defaults\n";
         $cms = loadCore($root);
         $cms->install();
@@ -210,7 +210,7 @@ switch ($cmd) {
     case 'publish':
         $keep = in_array('--keep', $argv, true);
         echo $keep ? "==> Publishing front (keeping local edits)\n" : "==> Publishing front (overwriting)\n";
-        copyFront($root, $keep);
+        copyFront($root, $pkg, $keep);
         echo "Done.\n";
         break;
 
@@ -218,7 +218,7 @@ switch ($cmd) {
         echo "==> composer update\n";
         passthru('composer update borjajimnz/sleekdbvcms');
         echo "==> publishing front\n";
-        copyFront($root, in_array('--keep', $argv, true));
+        copyFront($root, $pkg, in_array('--keep', $argv, true));
         break;
 
     case 'seed':
