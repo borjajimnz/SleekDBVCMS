@@ -30,6 +30,15 @@ Two front-ends on the same domain:
 
 ## Installation
 
+### Option 1 — As a dependency (recommended)
+
+```bash
+composer require borjajimnz/sleekdbvcms
+php bin/cms install mysite   # scaffolds Config.php, storage, symlink, npm build, seed
+```
+
+### Option 2 — Clone the repo
+
 ```bash
 git clone https://github.com/borjajimnz/SleekDBVCMS.git
 cd SleekDBVCMS
@@ -41,7 +50,7 @@ npm run build:css      # compiles tailwind/input.css -> public/dist/tailwind.css
 chmod -R 777 storage backups
 ```
 
-Start the dev server:
+### Dev server
 
 ```bash
 cd public

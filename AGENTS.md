@@ -20,6 +20,16 @@ Dos front-ends en el mismo dominio:
 
 ## Quickstart — montar en segundos
 
+### Opción A — Como dependencia (recomendado)
+
+```bash
+composer require borjajimnz/sleekdbvcms
+php bin/cms install mysite   # scaffolds Config.php, storage, symlink, npm build, seed
+# Visit → admin/admin / password
+```
+
+### Opción B — Clonar el repo
+
 ```bash
 composer create-project borjajimnz/sleekdbvcms mysite
 cd mysite
