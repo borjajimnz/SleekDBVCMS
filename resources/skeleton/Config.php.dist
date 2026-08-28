@@ -31,3 +31,5 @@ $config = [
         'image_quality' => 80,
     ],
 ];
+
+return $config;
