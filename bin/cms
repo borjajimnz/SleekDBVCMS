@@ -58,7 +58,7 @@ function loadCore(string $root): Core
     $config = null;
     $configFile = $root . '/Config.php';
     if (is_file($configFile)) {
-        require_once $configFile;
+        require $configFile;
     }
     if (!is_array($config)) {
         die("Config.php is missing or invalid. Run `php bin/cms install` first.\n");
